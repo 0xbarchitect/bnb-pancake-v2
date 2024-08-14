@@ -10,7 +10,8 @@ import threading
 import websockets
 
 from web3 import AsyncWeb3, Web3
-from web3.providers import WebsocketProviderV2, HTTPProvider
+from web3.providers import WebsocketProviderV2, HTTPProvider, WebsocketProvider
+from web3.middleware import async_geth_poa_middleware
 
 import sys # for testing
 sys.path.append('..')
@@ -18,9 +19,6 @@ sys.path.append('..')
 from library import Singleton
 from data import BlockData, Pair, ExecutionAck, FilterLogs, FilterLogsType, ReportData, ReportDataType, TxStatus
 from helpers import async_timer_decorator, load_abi, timer_decorator
-
-RESERVE_ETH_MIN_THRESHOLD=float(os.environ.get('RESERVE_ETH_MIN_THRESHOLD'))
-RESERVE_ETH_MAX_THRESHOLD=float(os.environ.get('RESERVE_ETH_MAX_THRESHOLD'))
 
 glb_lock = threading.Lock()
 
@@ -43,6 +41,8 @@ class BlockWatcher(metaclass=Singleton):
         global glb_lock
 
         async for w3Async in AsyncWeb3.persistent_websocket(WebsocketProviderV2(self.wss_url)):
+            w3Async.middleware_onion.inject(async_geth_poa_middleware, layer=0)
+
             try:
                 logging.info(f"websocket connected...")
 
@@ -50,17 +50,17 @@ class BlockWatcher(metaclass=Singleton):
                 async for response in w3Async.ws.process_subscriptions():
                     logging.debug(f"new block {response}\n")
                     
-                    block_number = Web3.to_int(hexstr=response['result']['number'])
-                    block_timestamp = Web3.to_int(hexstr=response['result']['timestamp'])
-                    base_fee = Web3.to_int(hexstr=response['result']['baseFeePerGas'])
-                    gas_used = Web3.to_int(hexstr=response['result']['gasUsed'])
-                    gas_limit = Web3.to_int(hexstr=response['result']['gasLimit'])
+                    block_number = response['result']['number']
+                    block_timestamp = response['result']['timestamp']
+                    base_fee = response['result']['baseFeePerGas']
+                    gas_used = response['result']['gasUsed']
+                    gas_limit = response['result']['gasLimit']
 
-                    logging.debug(f"block number {block_number} timestamp {block_timestamp}")
+                    logging.info(f"block number {block_number} timestamp {block_timestamp}")
 
                     pairs = self.filter_log_in_block(block_number, block_timestamp)
 
-                    logging.debug(f"WATCHER found pairs {pairs}")
+                    logging.info(f"WATCHER found pairs {pairs}")
 
                     self.block_broker.put(BlockData(
                         block_number,
@@ -84,7 +84,7 @@ class BlockWatcher(metaclass=Singleton):
     
     @timer_decorator
     def filter_log_in_block(self, block_number, block_timestamp):
-        #block_number = 17918019 # TODO
+        block_number = 41327949 # TODO
 
         def filter_paircreated_log(block_number):
             pair_created_logs = self.factory.events.PairCreated().get_logs(
@@ -95,7 +95,7 @@ class BlockWatcher(metaclass=Singleton):
             pairs = []
             if pair_created_logs != ():
                 for log in pair_created_logs:
-                    logging.debug(f"found pair created {log}")
+                    logging.info(f"found pair created {log}")
                     if log['args']['token0'].lower() == self.weth_address.lower() or log['args']['token1'].lower() == self.weth_address.lower():
                         pairs.append(Pair(
                             token=log['args']['token0'] if log['args']['token1'].lower() == self.weth_address.lower() else log['args']['token1'],
@@ -110,7 +110,7 @@ class BlockWatcher(metaclass=Singleton):
                     idx = future_to_pair[future]
                     try:
                         result = future.result()
-                        logging.debug(f"getReserves {pairs[idx].address} result {result}")
+                        logging.info(f"getReserves {pairs[idx].address} result {result}")
                         pairs[idx].reserve_token = Web3.from_wei(result[0],'ether') if pairs[idx].token_index == 0 else Web3.from_wei(result[1], 'ether')
                         pairs[idx].reserve_eth = Web3.from_wei(result[1],'ether') if pairs[idx].token_index == 0 else Web3.from_wei(result[0], 'ether')
                     except Exception as e:
@@ -168,7 +168,7 @@ class BlockWatcher(metaclass=Singleton):
                         elif result.type == FilterLogsType.SYNC:
                             if result.data != ():
                                 for log in result.data:
-                                    logging.debug(f"sync {log}")
+                                    logging.info(f"sync {log}")
 
                                     for pair in self.inventory:
                                         if pair.address == contract:
@@ -234,20 +234,20 @@ if __name__ == "__main__":
     block_broker = aioprocessing.AioQueue()
     report_broker = aioprocessing.AioQueue()
 
-    report_broker.put(ExecutionAck(
-        lead_block=0,
-        block_number=0,
-        tx_hash='0xabc',
-        tx_status=1,
-        pair=Pair(
-            address='0x9694DE8E322212ECf96e9276B8ab5c0b2f7a3a24',            
-            token='0x2E5387d321b358e8161C8F2ec00436006A7D07E2',
-            token_index=0,
-        ),
-        amount_in=1,
-        amount_out=1,
-        is_buy=True,
-    ))
+    # report_broker.put(ExecutionAck(
+    #     lead_block=0,
+    #     block_number=0,
+    #     tx_hash='0xabc',
+    #     tx_status=1,
+    #     pair=Pair(
+    #         address='0x9694DE8E322212ECf96e9276B8ab5c0b2f7a3a24',            
+    #         token='0x2E5387d321b358e8161C8F2ec00436006A7D07E2',
+    #         token_index=0,
+    #     ),
+    #     amount_in=1,
+    #     amount_out=1,
+    #     is_buy=True,
+    # ))
 
     # report_broker.put(ExecutionAck(
     #     lead_block=0,
@@ -301,7 +301,6 @@ if __name__ == "__main__":
 
         await asyncio.gather(block_watcher.main(), receive_block())
     
-    #asyncio.run(block_watcher.main())
     asyncio.run(run_all())
 
 

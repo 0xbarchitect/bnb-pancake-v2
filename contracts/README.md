@@ -1,5 +1,5 @@
-## TraderJoe-v1 Bot smart contracts
-This folder contains source code of TraderJoe V1 Bot.
+## Bot smart contracts
+This folder contains source code of Sniper bot.
 
 ### Build
 

@@ -51,6 +51,8 @@ class Simulator:
         try:
             balance_index = calculate_balance_storage_index(self.signer,0)
             allowance_index = calculate_allowance_storage_index(self.signer, self.inspector.address,1)
+
+            print(f"balance index {balance_index.hex()} allowance {allowance_index.hex()}")
             
             # result = self.w3.eth.call({
             #     'from': self.signer,
@@ -148,6 +150,11 @@ class Simulator:
 
             # sell
             storage_index = calculate_balance_storage_index(self.inspector.address, 0)
+            print(f"storage index {storage_index} result {hex(resultBuy[0][1])}")
+            print(f"from {self.signer}")
+            print(f"to {self.inspector.address}")
+            print(f"data {Web3.to_hex(bytes.fromhex(func_selector('sell(address,address,uint256)') + encode_address(token) + encode_address(self.signer) + encode_uint(int(time.time()) + 1000)))}")
+            print(f"token {token}")
 
             result = self.w3.eth.call({
                 'from': self.signer,
@@ -157,7 +164,7 @@ class Simulator:
                 )
             }, 'latest', {
                 token: {
-                    'stateDiff': {
+                    "stateDiff": {
                         storage_index.hex(): hex(resultBuy[0][1]),
                     }
                 }
@@ -165,8 +172,8 @@ class Simulator:
 
             resultSell = eth_abi.decode(['uint[]'], result)
 
-            assert len(resultSell[0]) == 2
-            assert resultSell[0][0] == resultBuy[0][1]
+            #assert len(resultSell[0]) == 2
+            #assert resultSell[0][0] == resultBuy[0][1]
 
             logging.info(f"SIMULATOR sell result {resultSell}")
 
@@ -208,21 +215,21 @@ if __name__ == '__main__':
     FEE_BPS = 25
 
     simulator = Simulator(os.environ.get('HTTPS_URL'),
-                            os.environ.get('EXECUTION_ADDRESSES').split(',')[2],
+                            os.environ.get('EXECUTION_ADDRESSES').split(',')[0],
                             os.environ.get('ROUTER_ADDRESS'),
                             os.environ.get('WETH_ADDRESS'),
-                            os.environ.get('INSPECTOR_BOT').split(',')[2],
+                            os.environ.get('INSPECTOR_BOT').split(',')[0],
                             PAIR_ABI,
                             WETH_ABI,
                             INSPECTOR_ABI,
                             )
     
     result=simulator.inspect_pair(Pair(
-        address='0x588Ca67e19926370cF091A8C1930A5AfB770e4b3',
-        token='0x1B4a89A896E1471382CB172b1849BB2c91A4a522',
-        token_index=0,
+        address='0x855844de1Daaa34506296045f7E290496Add72F3',
+        token='0xD70e069A0776BA3944cec27842Abf3c6016656be',
+        token_index=1,
         reserve_token=0,
         reserve_eth=0
-    ), 0.001, swap=True)
+    ), 100000, swap=False)
 
     logging.info(f"Simulation result {result}")

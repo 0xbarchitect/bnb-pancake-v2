@@ -18,8 +18,7 @@ from helpers.utils import load_contract_bin, encode_address, encode_uint, func_s
                             load_abi, calculate_next_block_base_fee, calculate_balance_storage_index, rpad_int, \
                             calculate_allowance_storage_index
 
-from data import BlockData, SimulationResult, Pair
-import eth_utils
+from data import SimulationResult, Pair
 
 class Simulator:
     @timer_decorator
@@ -28,12 +27,12 @@ class Simulator:
                  signer, 
                  router_address, 
                  weth,
-                 inspector,
+                 bot,
                  pair_abi,
                  weth_abi,
-                 inspector_abi,
+                 bot_abi,
                  ):
-        logging.info(f"start simulation...")
+        logging.debug(f"start simulation...")
 
         self.http_url = http_url
         self.signer = signer
@@ -44,21 +43,19 @@ class Simulator:
         self.w3 = Web3(Web3.HTTPProvider(http_url))
         self.pair_abi = pair_abi
         self.weth_contract = self.w3.eth.contract(address=weth, abi=weth_abi)
-        self.inspector = self.w3.eth.contract(address=inspector, abi=inspector_abi)
+        self.bot = self.w3.eth.contract(address=bot, abi=bot_abi)
 
     @timer_decorator
     def inspect_token_by_transfer(self, token, amount):
         try:
             balance_index = calculate_balance_storage_index(self.signer,0)
-            allowance_index = calculate_allowance_storage_index(self.signer, self.inspector.address,1)
-
-            print(f"balance index {balance_index.hex()} allowance {allowance_index.hex()}")
+            allowance_index = calculate_allowance_storage_index(self.signer, self.bot.address,1)
             
             # result = self.w3.eth.call({
             #     'from': self.signer,
             #     'to': token,
             #     'data': bytes.fromhex(
-            #         func_selector('transfer(address,uint256)') + encode_address(self.inspector.address) + encode_uint(amount)
+            #         func_selector('transfer(address,uint256)') + encode_address(self.bot.address) + encode_uint(amount)
             #     )
             # }, 'latest', {
             #     token: {
@@ -73,7 +70,7 @@ class Simulator:
             #     'from': self.signer,
             #     'to': token,
             #     'data': bytes.fromhex(
-            #         func_selector('allowance(address,address)') + encode_address(self.signer) + encode_address(self.inspector.address)
+            #         func_selector('allowance(address,address)') + encode_address(self.signer) + encode_address(self.bot.address)
             #     )
             # }, 'latest', {
             #     token: {
@@ -87,7 +84,7 @@ class Simulator:
 
             result = self.w3.eth.call({
                 'from': self.signer,
-                'to': self.inspector.address,
+                'to': self.bot.address,
                 'data': bytes.fromhex(
                     func_selector('inspect_transfer(address,uint256)') + encode_address(token) + encode_uint(Web3.to_wei(amount, 'ether'))
                 )
@@ -113,24 +110,10 @@ class Simulator:
     @timer_decorator
     def inspect_token_by_swap(self, token, amount):
         try:
-            # result = self.w3.eth.call({
-            #     'from': self.signer,
-            #     'to': self.inspector.address,
-            #     'value': Web3.to_wei(amount, 'ether'),
-            #     'data': bytes.fromhex(
-            #         func_selector('inspect(address)') + encode_address(token)
-            #     )
-            # }, 'latest', state_override)
-
-            # result = eth_abi.decode(['(uint256,uint256,uint256)'], result)
-            
-            # slippage = (Decimal(result[0][0]) - Decimal(result[0][2]))/Decimal(result[0][0])*Decimal(10_000) # in basis points
-            # slippage = round(slippage,5)
-
             # buy
             result = self.w3.eth.call({
                 'from': self.signer,
-                'to': self.inspector.address,
+                'to': self.bot.address,
                 'value': Web3.to_wei(amount, 'ether'),
                 'data': bytes.fromhex(
                     func_selector('buy(address,uint256)') + encode_address(token) + encode_uint(int(time.time()) + 1000)
@@ -146,25 +129,20 @@ class Simulator:
             assert len(resultBuy[0]) == 2
             assert resultBuy[0][0] == Web3.to_wei(amount, 'ether')
 
-            logging.info(f"SIMULATOR buy result {resultBuy}")
+            logging.debug(f"SIMULATOR buy result {resultBuy}")
 
             # sell
-            storage_index = calculate_balance_storage_index(self.inspector.address, 0)
-            print(f"storage index {storage_index} result {hex(resultBuy[0][1])}")
-            print(f"from {self.signer}")
-            print(f"to {self.inspector.address}")
-            print(f"data {Web3.to_hex(bytes.fromhex(func_selector('sell(address,address,uint256)') + encode_address(token) + encode_address(self.signer) + encode_uint(int(time.time()) + 1000)))}")
-            print(f"token {token}")
+            storage_index = calculate_balance_storage_index(self.bot.address, 0)
 
             result = self.w3.eth.call({
                 'from': self.signer,
-                'to': self.inspector.address,
+                'to': self.bot.address,
                 'data': bytes.fromhex(
                     func_selector('sell(address,address,uint256)') + encode_address(token) + encode_address(self.signer) + encode_uint(int(time.time()) + 1000)
                 )
             }, 'latest', {
                 token: {
-                    "stateDiff": {
+                    'stateDiff': {
                         storage_index.hex(): hex(resultBuy[0][1]),
                     }
                 }
@@ -172,10 +150,10 @@ class Simulator:
 
             resultSell = eth_abi.decode(['uint[]'], result)
 
-            #assert len(resultSell[0]) == 2
-            #assert resultSell[0][0] == resultBuy[0][1]
+            assert len(resultSell[0]) == 2
+            assert resultSell[0][0] == resultBuy[0][1]
 
-            logging.info(f"SIMULATOR sell result {resultSell}")
+            logging.debug(f"SIMULATOR sell result {resultSell}")
 
             amount_out = Web3.from_wei(resultSell[0][1], 'ether')
             slippage = (Decimal(amount) - Decimal(amount_out))/Decimal(amount)*Decimal(10000)
@@ -183,7 +161,7 @@ class Simulator:
             
             return (amount, amount_out, slippage, amount_token)
         except Exception as e:
-            logging.error(f"inspect failed with error {e}")
+            logging.error(f"SIMULATOR inspect {token} failed with error {e}")
             return None
         
     def inspect_pair(self, pair: Pair, amount, swap=True) -> None:
@@ -208,28 +186,29 @@ if __name__ == '__main__':
 
     PAIR_ABI = load_abi(f"{os.path.dirname(__file__)}/../contracts/abis/UniV2Pair.abi.json")
     WETH_ABI = load_abi(f"{os.path.dirname(__file__)}/../contracts/abis/WETH.abi.json")
-    INSPECTOR_ABI = load_abi(f"{os.path.dirname(__file__)}/../contracts/abis/InspectBot.abi.json")
+    BOT_ABI = load_abi(f"{os.path.dirname(__file__)}/../contracts/abis/SnipeBot.abi.json")
 
     ETH_BALANCE = 1000
     GAS_LIMIT = 200*10**3
     FEE_BPS = 25
 
-    simulator = Simulator(os.environ.get('HTTPS_URL'),
-                            os.environ.get('EXECUTION_ADDRESSES').split(',')[0],
-                            os.environ.get('ROUTER_ADDRESS'),
-                            os.environ.get('WETH_ADDRESS'),
-                            os.environ.get('INSPECTOR_BOT').split(',')[0],
-                            PAIR_ABI,
-                            WETH_ABI,
-                            INSPECTOR_ABI,
-                            )
+    simulator = Simulator(
+                    http_url=os.environ.get('HTTPS_URL'),
+                    signer=Web3.to_checksum_address(os.environ.get('MANAGER_ADDRESS')),
+                    router_address=Web3.to_checksum_address(os.environ.get('ROUTER_ADDRESS')),
+                    weth=Web3.to_checksum_address(os.environ.get('WETH_ADDRESS')),
+                    bot=Web3.to_checksum_address(os.environ.get('INSPECTOR_BOT')),
+                    pair_abi=PAIR_ABI,
+                    weth_abi=WETH_ABI,
+                    bot_abi=BOT_ABI,
+                    )
     
     result=simulator.inspect_pair(Pair(
-        address='0x855844de1Daaa34506296045f7E290496Add72F3',
-        token='0xD70e069A0776BA3944cec27842Abf3c6016656be',
+        address='0xd7ed0bce6b99acc642e905f0572a18069b7f262d',
+        token='0xad78cf32fa8b521a7ffac5e0d8705c4b9ee0f38a',
         token_index=1,
         reserve_token=0,
         reserve_eth=0
-    ), 100000, swap=False)
+    ), 0.001, swap=True)
 
     logging.info(f"Simulation result {result}")

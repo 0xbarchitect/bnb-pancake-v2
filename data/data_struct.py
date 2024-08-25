@@ -2,7 +2,7 @@ import os
 from decimal import Decimal
 
 class Pair:
-    def __init__(self, token, token_index, address, reserve_token=0, reserve_eth=0, created_at=0, inspect_attempts=0, has_buy=False, has_sell=False) -> None:
+    def __init__(self, token, token_index, address, reserve_token=0, reserve_eth=0, created_at=0, inspect_attempts=0, creator=None, contract_verified=False, number_tx_mm=0, last_inspected_block=0) -> None:
         self.token = token
         self.token_index = token_index
         self.address = address
@@ -10,8 +10,10 @@ class Pair:
         self.reserve_eth = reserve_eth
         self.created_at = created_at
         self.inspect_attempts = inspect_attempts
-        self.has_buy = False
-        self.has_sell = False
+        self.creator = creator
+        self.contract_verified = contract_verified
+        self.number_tx_mm = number_tx_mm
+        self.last_inspected_block = last_inspected_block
 
     def price(self):
         if self.reserve_token != 0 and self.reserve_eth != 0:
@@ -19,7 +21,11 @@ class Pair:
         return 0
 
     def  __str__(self) -> str:
-        return f"Pair {self.address} token {self.token} tokenIndex {self.token_index} reserve_token {self.reserve_token} reserve_eth {self.reserve_eth} createdAt {self.created_at} inspectAttempts {self.inspect_attempts} hasBuy {self.has_buy} hasSell {self.has_sell}"
+        return f"""
+        Pair {self.address} Token {self.token} TokenIndex {self.token_index}
+        Creator {self.creator} ReserveToken {self.reserve_token} ReserveEth {self.reserve_eth}
+        ContractVerified {self.contract_verified} NumberTxMM {self.number_tx_mm} InspectAttempts {self.inspect_attempts} LastInspectedBlock {self.last_inspected_block}
+        """
 
 class BlockData:
     def __init__(self, block_number, block_timestamp, base_fee, gas_used, gas_limit, pairs=[], inventory=[], watchlist=[]) -> None:
@@ -50,7 +56,7 @@ class ExecutionOrder:
         self.bot = bot
 
     def __str__(self) -> str:
-        return f"Execution order block #{self.block_number} pair {self.pair} amountIn {self.amount_in} amountOutMin {self.amount_out_min} signer {self.signer} bot {self.bot} isBuy {self.is_buy}"
+        return f"ExecutionOrder Block #{self.block_number} Pair {self.pair.address} AmountIn {self.amount_in} AmountOutMin {self.amount_out_min} Signer {self.signer} Bot {self.bot} isBuy {self.is_buy}"
     
 class ExecutionAck:
     def __init__(self, lead_block, block_number, tx_hash, tx_status, pair: Pair, amount_in, amount_out, is_buy, signer=None, bot=None) -> None:
@@ -67,8 +73,8 @@ class ExecutionAck:
 
     def __str__(self) -> str:
         return f"""
-        Execution acknowledgement lead #{self.lead_block} realized #{self.block_number} tx {self.tx_hash} status {self.tx_status}
-        Pair {self.pair} AmountIn {self.amount_in} AmountOut {self.amount_out} Signer {self.signer} Bot {self.bot} IsBuy {self.is_buy}
+        ExecutionAck lead #{self.lead_block} realized #{self.block_number} Tx {self.tx_hash} STATUS {self.tx_status}
+        Pair {self.pair.address} AmountIn {self.amount_in} AmountOut {self.amount_out} Signer {self.signer} Bot {self.bot} IsBuy {self.is_buy}
         """
 from enum import IntEnum
 
@@ -90,11 +96,26 @@ class ReportData:
         Report type #{self.type} data {self.data}
         """
 
+class Bot:
+    def __init__(self, address, owner, deployed_at=0, number_used=0, is_failed=False, is_holding=False) -> None:
+        self.address = address
+        self.owner = owner
+        self.deployed_at = deployed_at
+        self.number_used = number_used
+        self.is_failed = is_failed
+        self.is_holding = is_holding
+
+    def __str__(self) -> str:
+        return f"""
+        Bot {self.address} Owner {self.owner} DeployedAt {self.deployed_at}
+        NumberUsed {self.number_used} IsFailed {self.is_failed} IsHolding {self.is_holding}
+        """
+    
 class W3Account:
-    def __init__(self, w3_account, private_key, nonce) -> None:
+    def __init__(self, w3_account, private_key, bot:Bot = None) -> None:
         self.w3_account = w3_account
         self.private_key = private_key
-        self.nonce = nonce
+        self.bot = bot
 
 class SimulationResult:
     def __init__(self, pair, amount_in, amount_out, slippage, amount_token=0) -> None:
@@ -105,7 +126,7 @@ class SimulationResult:
         self.amount_token = amount_token
 
     def __str__(self) -> str:
-        return f"Simulation result {self.pair} slippage {self.slippage} amountIn {self.amount_in} amountOut {self.amount_out} amountToken {self.amount_token}"
+        return f"Simulation result {self.pair.address} slippage {self.slippage} amountIn {self.amount_in} amountOut {self.amount_out} amountToken {self.amount_token}"
     
 class FilterLogsType(IntEnum):
     PAIR_CREATED = 0
@@ -131,8 +152,50 @@ class Position:
         self.bot = bot
 
     def __str__(self) -> str:
-        return f"Position {self.pair} amount {self.amount} buyPrice {self.buy_price} startTime {self.start_time} signer {self.signer} bot {self.bot} pnl {self.pnl}"
+        return f"Position {self.pair.address} amount {self.amount} buyPrice {self.buy_price} startTime {self.start_time} signer {self.signer} bot {self.bot} pnl {self.pnl}"
     
 class TxStatus(IntEnum):
     FAILED = 0
     SUCCESS = 1
+
+class MaliciousPair(IntEnum):
+    UNMALICIOUS=0
+    CREATOR_BLACKLISTED=1
+    CREATOR_RUGGED=2
+
+class InspectionResult:
+    def __init__(self, pair: Pair, from_block, to_block, reserve_inrange=False, simulation_result=None, is_malicious=MaliciousPair.UNMALICIOUS, contract_verified=False, is_creator_call_contract=0, number_tx_mm=0) -> None:
+        self.pair = pair
+        self.from_block = from_block
+        self.to_block = to_block
+
+        self.reserve_inrange = reserve_inrange
+        self.simulation_result = simulation_result
+        self.is_malicious = is_malicious
+        self.contract_verified = contract_verified
+        self.is_creator_call_contract = is_creator_call_contract
+        self.number_tx_mm = number_tx_mm
+
+    def __str__(self) -> str:
+        return f"""
+        Inspection result Pair {self.pair.address} fromBlock {self.from_block} toBlock {self.to_block}
+        ReserveInrange {self.reserve_inrange} IsMalicious {self.is_malicious} ContractVerified {self.contract_verified}
+        CreatorCallContract {self.is_creator_call_contract} NumberTxMM {self.number_tx_mm}
+        SimulationResult {self.simulation_result}
+        """
+
+class BotCreationOrder:
+    def __init__(self, owner, retry_times=0) -> None:
+        self.owner = owner
+        self.retry_times = retry_times
+
+    def __str__(self) -> str:
+        return f"BotCreationOrder owner {self.owner} retryTimes {self.retry_times}"
+    
+class BotUpdateOrder:
+    def __init__(self, bot:Bot, execution_ack: ExecutionAck) -> None:
+        self.bot = bot
+        self.execution_ack = execution_ack
+
+    def __str__(self) -> str:
+        return f"UpdateBotOrder for {self.bot.address} with execution ack {self.execution_ack.tx_hash}"

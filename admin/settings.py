@@ -82,6 +82,7 @@ CORS_ALLOW_HEADERS = [
 
 # add hosting domains to bypass CSRF
 CSRF_TRUSTED_ORIGINS = [
+    'https://*.fenixq.trade',
     'http://localhost:3000/',
     'https://*.127.0.0.1', 
 ]

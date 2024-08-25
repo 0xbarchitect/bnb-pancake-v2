@@ -276,40 +276,42 @@ if __name__ == "__main__":
         bot_factory_abi=BOT_FACTORY_ABI,
         bot_implementation=os.environ.get('BOT_IMPLEMENTATION'),
         pair_factory=os.environ.get('FACTORY_ADDRESS'),
-        bot_db=True,
+        bot_db=False,
     )
 
     async def simulate_order():
         await asyncio.sleep(1) # waiting for bot is fully initialized
 
         # BUY
-        order_receiver.put(ExecutionOrder(
-            block_number=0, 
-            block_timestamp=0, 
-            pair=Pair(
-                address='0x007aecca41413c93b95c0fc42a73ccfc043c724b',
-                token='0x00f503f91fd944eef12341c3772f670516a87dc8',
-                token_index=0,
-            ) , 
-            amount_in=0.000001,
-            amount_out_min=0,
-            is_buy=True))
-        
-        # SELL
         # order_receiver.put(ExecutionOrder(
-        #     block_number=0,
-        #     block_timestamp=0,
+        #     block_number=0, 
+        #     block_timestamp=0, 
         #     pair=Pair(
-        #         address='0x131e31b52e83412b7786ee5fd4582f92084ceac0',
-        #         token='0xe9158065972f4fee1a28e42829c6eaf42eccd73e',
+        #         address='0x1928d48674412734f9dc2d6d1d0e0f3bbb6c1092',
+        #         token='0x4d20617631d5d778918efb34ff7518df40b36a18',
         #         token_index=0,
         #     ),
-        #     signer='0xbdac4a1d024f10b82e8b48a2c994ad40b29dea62',
-        #     bot='0x968020a614dddf920a8a3147d65e89ecdf0ded2a',
-        #     amount_in=0,
+        #     signer='0xecb137C67c93eA50b8C259F8A8D08c0df18222d9',
+        #     bot='0x95f1062CCBF3A4909E1007457231130cdB4DB4c8',
+        #     amount_in=0.001,
         #     amount_out_min=0,
-        #     is_buy=False,
-        #     ))
+        #     is_buy=True))
+        
+        # SELL
+        order_receiver.put(ExecutionOrder(
+            block_number=0,
+            block_timestamp=0,
+            pair=Pair(
+                address='0x1928d48674412734f9dc2d6d1d0e0f3bbb6c1092',
+                token='0x4d20617631d5d778918efb34ff7518df40b36a18',
+                token_index=0,
+            ),
+            signer='0xecb137C67c93eA50b8C259F8A8D08c0df18222d9',
+            bot='0x95f1062CCBF3A4909E1007457231130cdB4DB4c8',
+            amount_in=0,
+            amount_out_min=0,
+            is_buy=False,
+            ))
 
     async def main_loop():
         await asyncio.gather(executor.run(), simulate_order())

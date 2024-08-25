@@ -100,15 +100,21 @@ class PairInspector(metaclass=Singleton):
         return False
         
     @timer_decorator
-    def is_creator_call_contract(self, pair, from_block, to_block) -> 0:
-        r=requests.get(f"{self.etherscan_api_url}/api?module=account&action=txlist&address={pair.token}&startblock={from_block}&endblock={to_block}&page=1&offset={PAGE_SIZE}&sort=asc&apikey={self.select_api_key()}")
-        if r.status_code==STATUS_CODE_SUCCESS:
-            res=r.json()
-            if int(res['status'])==1 and len(res['result'])>0:
-                txs = [tx for tx in res['result'] if tx['from'].lower()==pair.creator.lower() and tx['to'].lower()==pair.token.lower()]
-                return len(txs)
+    def is_creator_call_contract(self, pair, from_block, to_block):
+        txlist = self.get_txlist(pair.token, from_block, to_block)
+        
+        if int(txlist['status'])==constants.TX_SUCCESS_STATUS and len(txlist['result'])>0:
+            txs = [tx for tx in txlist['result'] if tx['to'].lower()==pair.token.lower() and tx['methodId'] not in [constants.APPROVE_METHOD_ID]]
+            return len(txs)
             
         return 0
+    
+    def get_txlist(self, contract, start_block, end_block, page_size=100, sort='desc'):
+        r=requests.get(f"{self.etherscan_api_url}/api?module=account&action=txlist&address={contract}&startblock={start_block}&endblock={end_block}&page=1&offset={page_size}&sort={sort}&apikey={self.select_api_key()}")
+        if r.status_code==STATUS_CODE_SUCCESS:
+            res=r.json()
+            return res
+        return None
     
     def select_api_key(self):
         self.counter+=1
@@ -134,6 +140,26 @@ class PairInspector(metaclass=Singleton):
             logging.warning(f"INSPECTOR pair {pair.address} is blacklisted due to rogue creator")
             return MaliciousPair.CREATOR_BLACKLISTED
         
+        # get token creation tx
+        if is_initial:
+            try:
+                r=requests.get(f"{self.etherscan_api_url}/api?module=contract&action=getcontractcreation&contractaddresses={pair.token}&apikey={self.select_api_key()}")
+                if r.status_code==STATUS_CODE_SUCCESS:
+                    res=r.json()
+                    if int(res['status'])==1 and res['result'][0]['txHash'] is not None:
+                        tx_receipt = self.w3.eth.get_transaction_receipt(res['result'][0]['txHash'])
+                        txlist = self.get_txlist(pair.token, tx_receipt['blockNumber'], block_number)
+                        if int(txlist['status'])==constants.TX_SUCCESS_STATUS and txlist['result'] is not None:
+                            for tx in txlist['result']:
+                                if tx['methodId'] not in [constants.APPROVE_METHOD_ID,constants.TRANSFER_METHOD_ID,constants.RENOUNCE_OWNERSHIP_METHOD_ID]:
+                                    logging.warning(f"INSPECTOR pair {pair.address} detected malicious due to abnormal incoming tx {tx}")
+                                    return MaliciousPair.MALICIOUS_TX_IN
+                else:
+                    logging.error(f"INSPECTOR GetContractCreation error {r.status_code}")
+            except Exception as e:
+                logging.error(f"INSPECTOR IsMalicious check error:: {e}")
+                return MaliciousPair.UNVERIFIED
+
         return MaliciousPair.UNMALICIOUS
     
     @timer_decorator
@@ -217,32 +243,34 @@ if __name__=="__main__":
         http_url=os.environ.get('HTTPS_URL'),
         api_keys=os.environ.get('BASESCAN_API_KEYS'),
         etherscan_api_url=os.environ.get('ETHERSCAN_API_URL'),
-        signer=Web3.to_checksum_address(os.environ.get('MANAGER_ADDRESS')),
+        #signer=Web3.to_checksum_address(os.environ.get('MANAGER_ADDRESS')),
+        #bot=Web3.to_checksum_address(os.environ.get('INSPECTOR_BOT')),
+        signer='0xecb137C67c93eA50b8C259F8A8D08c0df18222d9',
+        bot='0x95f1062CCBF3A4909E1007457231130cdB4DB4c8',
         router=Web3.to_checksum_address(os.environ.get('ROUTER_ADDRESS')),
         weth=Web3.to_checksum_address(os.environ.get('WETH_ADDRESS')),
-        bot=Web3.to_checksum_address(os.environ.get('INSPECTOR_BOT')),
         pair_abi=PAIR_ABI,
         weth_abi=WETH_ABI,
         bot_abi=BOT_ABI,
     )
 
     pair = Pair(
-        address="0xd070a842bf38fa1bc59342fdb0be27e083d064a3",
-        token="0x18aaaa853fc0210626e626bfe6c0c941fc4d1a1a",
+        address="0x5f2165bb121ee98ea109a1a7eaa07d1c3afa083f",
+        token="0x1e75017c67d3e74aca268519b7f5689450f763e8",
         token_index=0,
+        creator="0xe610ab3156861e9c7b70666aad09c7af4d52cb2e",
         reserve_eth=10,
         reserve_token=0,
         created_at=0,
         inspect_attempts=1,
-        creator="0x6821ec18d84315300b64a7d4e658ea7f3f10dd05",
         contract_verified=False,
         number_tx_mm=0,
         last_inspected_block=0, # is the created_block as well
     )
 
-    #print("verified") if inspector.is_contract_verified(pair) else print(f"unverified")
-    # print(f"number called {inspector.is_creator_call_contract(pair, 18441043, 18441080)}")
-    # print(f"number mm_tx {inspector.number_tx_mm(pair, 18441096, 18441130)}")
-    # print(f"is malicious {inspector.is_malicious(pair)}")
+    #print("contract verified") if inspector.is_contract_verified(pair) else print(f"contract unverified")
+    #print(f"number called {inspector.is_creator_call_contract(pair, 41665828, 41666241)}")
+    #print(f"number mm_tx {inspector.number_tx_mm(pair, 41665828, 41665884)}")
+    #print(f"is malicious {inspector.is_malicious(pair, 41665828, is_initial=True)}")
 
-    inspector.inspect_batch([pair], 41662379, is_initial=True)
+    inspector.inspect_batch([pair], 41667082, is_initial=True)

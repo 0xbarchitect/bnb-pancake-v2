@@ -23,6 +23,7 @@ from helpers.utils import load_contract_bin, encode_address, encode_uint, func_s
 from data import SimulationResult, Pair
 
 class RevmSimulator:
+    @timer_decorator
     def __init__(self, 
                  http_url, 
                  signer, 
@@ -116,7 +117,7 @@ class RevmSimulator:
 if __name__ == '__main__':
     from dotenv import load_dotenv
     load_dotenv()
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.DEBUG)
 
     PAIR_ABI = load_abi(f"{os.path.dirname(__file__)}/../contracts/abis/UniV2Pair.abi.json")
     WETH_ABI = load_abi(f"{os.path.dirname(__file__)}/../contracts/abis/WETH.abi.json")
@@ -138,9 +139,9 @@ if __name__ == '__main__':
                 )
     
     result=simulator.inspect_pair(Pair(
-        address='0xb6d3fdd13445873522e5f64e06794dfdd19e083f',
-        token='0xc44644e2ed33e7402199aed8b9e7e889c15cc98d',
-        token_index=1,
+        address='0x1928d48674412734f9dc2d6d1d0e0f3bbb6c1092',
+        token='0x4d20617631d5d778918efb34ff7518df40b36a18',
+        token_index=0,
         reserve_token=0,
         reserve_eth=0
     ), 0.1)

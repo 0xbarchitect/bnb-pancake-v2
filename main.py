@@ -18,7 +18,7 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 
 from watcher import BlockWatcher
-from inspector import Simulator, PairInspector
+from inspector import PairInspector
 from executor import BuySellExecutor
 from reporter import Reporter
 from helpers import load_abi, timer_decorator, calculate_price, calculate_next_block_base_fee, constants

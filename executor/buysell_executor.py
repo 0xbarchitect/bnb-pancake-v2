@@ -283,9 +283,24 @@ if __name__ == "__main__":
         await asyncio.sleep(1) # waiting for bot is fully initialized
 
         # BUY
+        order_receiver.put(ExecutionOrder(
+            block_number=0, 
+            block_timestamp=0, 
+            pair=Pair(
+                address='0x0bCF9064a4363ac60350042c8390aeb034d2B6d6',
+                token='0xd67ac67ff99153a76ec881bfd8be006789e32b4e',
+                token_index=1,
+            ),
+            signer='0xecb137C67c93eA50b8C259F8A8D08c0df18222d9',
+            bot='0x95f1062CCBF3A4909E1007457231130cdB4DB4c8',
+            amount_in=0.001,
+            amount_out_min=0,
+            is_buy=True))
+        
+        # SELL
         # order_receiver.put(ExecutionOrder(
-        #     block_number=0, 
-        #     block_timestamp=0, 
+        #     block_number=0,
+        #     block_timestamp=0,
         #     pair=Pair(
         #         address='0x1928d48674412734f9dc2d6d1d0e0f3bbb6c1092',
         #         token='0x4d20617631d5d778918efb34ff7518df40b36a18',
@@ -293,25 +308,10 @@ if __name__ == "__main__":
         #     ),
         #     signer='0xecb137C67c93eA50b8C259F8A8D08c0df18222d9',
         #     bot='0x95f1062CCBF3A4909E1007457231130cdB4DB4c8',
-        #     amount_in=0.001,
+        #     amount_in=0,
         #     amount_out_min=0,
-        #     is_buy=True))
-        
-        # SELL
-        order_receiver.put(ExecutionOrder(
-            block_number=0,
-            block_timestamp=0,
-            pair=Pair(
-                address='0x1928d48674412734f9dc2d6d1d0e0f3bbb6c1092',
-                token='0x4d20617631d5d778918efb34ff7518df40b36a18',
-                token_index=0,
-            ),
-            signer='0xecb137C67c93eA50b8C259F8A8D08c0df18222d9',
-            bot='0x95f1062CCBF3A4909E1007457231130cdB4DB4c8',
-            amount_in=0,
-            amount_out_min=0,
-            is_buy=False,
-            ))
+        #     is_buy=False,
+        #     ))
 
     async def main_loop():
         await asyncio.gather(executor.run(), simulate_order())

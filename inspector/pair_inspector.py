@@ -33,7 +33,7 @@ import console.models
 
 STATUS_CODE_SUCCESS=200
 PAGE_SIZE=100
-MM_TX_AMOUNT_THRESHOLD=0.001
+MM_TX_AMOUNT_THRESHOLD=0.01
 CREATOR_TX_HISTORY_PAGE_SIZE=500
 
 SIMULATION_AMOUNT=0.01
@@ -256,8 +256,8 @@ if __name__=="__main__":
     )
 
     pair = Pair(
-        address="0xbc7d9a0d50efbf853dfd0964b795a02d569d7f33",
-        token="0xef0a76f048a476c60c11efd6badf7839b1c2e680",
+        address="0x0bCF9064a4363ac60350042c8390aeb034d2B6d6",
+        token="0xd67ac67ff99153a76ec881bfd8be006789e32b4e",
         token_index=1,
         creator="0xe610ab3156861e9c7b70666aad09c7af4d52cb2e",
         reserve_eth=10,
@@ -266,7 +266,7 @@ if __name__=="__main__":
         inspect_attempts=1,
         contract_verified=False,
         number_tx_mm=0,
-        last_inspected_block=41669474, # is the created_block as well
+        last_inspected_block=41669640, # is the created_block as well
     )
 
     #print("contract verified") if inspector.is_contract_verified(pair) else print(f"contract unverified")
@@ -274,4 +274,4 @@ if __name__=="__main__":
     #print(f"number mm_tx {inspector.number_tx_mm(pair, 41665828, 41665884)}")
     #print(f"is malicious {inspector.is_malicious(pair, 41665828, is_initial=True)}")
 
-    inspector.inspect_batch([pair], 41669560, is_initial=False)
+    inspector.inspect_batch([pair], 41670087, is_initial=False)

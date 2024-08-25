@@ -260,6 +260,7 @@ def inspect(pairs, block_number, is_initial=False) -> List[InspectionResult]:
     inspector = PairInspector(
         http_url=os.environ.get('HTTPS_URL'),
         api_keys=os.environ.get('BASESCAN_API_KEYS'),
+        etherscan_api_url=os.environ.get('ETHERSCAN_API_URL'),
         signer=Web3.to_checksum_address(os.environ.get('MANAGER_ADDRESS')),
         router=Web3.to_checksum_address(os.environ.get('ROUTER_ADDRESS')),
         weth=Web3.to_checksum_address(os.environ.get('WETH_ADDRESS')),

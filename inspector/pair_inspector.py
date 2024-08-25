@@ -151,7 +151,7 @@ class PairInspector(metaclass=Singleton):
                         txlist = self.get_txlist(pair.token, tx_receipt['blockNumber'], block_number)
                         if int(txlist['status'])==constants.TX_SUCCESS_STATUS and txlist['result'] is not None:
                             for tx in txlist['result']:
-                                if tx['methodId'] not in [constants.APPROVE_METHOD_ID,constants.TRANSFER_METHOD_ID,constants.RENOUNCE_OWNERSHIP_METHOD_ID]:
+                                if tx['to'].lower()==pair.token.lower() and tx['methodId'] not in [constants.APPROVE_METHOD_ID,constants.TRANSFER_METHOD_ID,constants.RENOUNCE_OWNERSHIP_METHOD_ID]:
                                     logging.warning(f"INSPECTOR pair {pair.address} detected malicious due to abnormal incoming tx {tx}")
                                     return MaliciousPair.MALICIOUS_TX_IN
                 else:
@@ -255,8 +255,8 @@ if __name__=="__main__":
     )
 
     pair = Pair(
-        address="0x5f2165bb121ee98ea109a1a7eaa07d1c3afa083f",
-        token="0x1e75017c67d3e74aca268519b7f5689450f763e8",
+        address="0x8294ebc15dafa9d333bc49d6599feabe748e843e",
+        token="0x144e57a3adee6cd388c2284e8a007aea7639615d",
         token_index=0,
         creator="0xe610ab3156861e9c7b70666aad09c7af4d52cb2e",
         reserve_eth=10,
@@ -273,4 +273,4 @@ if __name__=="__main__":
     #print(f"number mm_tx {inspector.number_tx_mm(pair, 41665828, 41665884)}")
     #print(f"is malicious {inspector.is_malicious(pair, 41665828, is_initial=True)}")
 
-    inspector.inspect_batch([pair], 41667082, is_initial=True)
+    inspector.inspect_batch([pair], 41668421, is_initial=True)

@@ -22,7 +22,7 @@ from helpers.utils import load_contract_bin, encode_address, encode_uint, func_s
                             calculate_allowance_storage_index
 from helpers import constants
 from data import Pair, MaliciousPair, InspectionResult, SimulationResult
-from inspector import Simulator
+from inspector import RevmSimulator
 
 # django
 import django
@@ -36,7 +36,7 @@ PAGE_SIZE=100
 MM_TX_AMOUNT_THRESHOLD=0.001
 CREATOR_TX_HISTORY_PAGE_SIZE=500
 
-SIMULATION_AMOUNT=0.001
+SIMULATION_AMOUNT=0.01
 SLIPPAGE_MIN_THRESHOLD = 30 # in basis points
 SLIPPAGE_MAX_THRESHOLD = 100 # in basis points
 
@@ -52,19 +52,23 @@ INSPECT_INTERVAL_SECONDS=int(os.environ.get('INSPECT_INTERVAL_SECONDS'))
 from enum import IntEnum
 
 class PairInspector(metaclass=Singleton):
-    def __init__(self,http_url,
+    def __init__(self,
+                 http_url,
                  api_keys,
+                 etherscan_api_url,
                  signer, 
                  router, 
                  weth,
                  bot,
                  pair_abi,
                  weth_abi,
-                 bot_abi,) -> None:
+                 bot_abi,
+                 ) -> None:
         
         self.http_url = http_url
         self.w3 = Web3(Web3.HTTPProvider(http_url))
         self.api_keys = api_keys.split(',')
+        self.etherscan_api_url = etherscan_api_url
 
         self.signer = signer
         self.router = router
@@ -81,19 +85,23 @@ class PairInspector(metaclass=Singleton):
         if pair.contract_verified:
             return True
         
-        r=requests.get(f"https://api.basescan.org/api?module=contract&action=getsourcecode&address={pair.token}&apikey={self.select_api_key()}")
+        r=requests.get(f"{self.etherscan_api_url}/api?module=contract&action=getsourcecode&address={pair.token}&apikey={self.select_api_key()}")
         if r.status_code==STATUS_CODE_SUCCESS:
             res=r.json()
+            logging.debug(f"INSPECTOR GetSourceCode result {res}")
+
             if int(res['status'])==1 and len(res['result'][0].get('Library',''))==0:
                 if CONTRACT_VERIFIED_REQUIRED==1:
                     return True if len(res['result'][0].get('SourceCode',''))>0 and len(res['result'][0].get('ContractName'))>0 else False
                 return True
+        else:
+            logging.error(f"INSPECTOR EtherscanAPI GetSourceCode error:: {r.status_code}")
                 
         return False
         
     @timer_decorator
     def is_creator_call_contract(self, pair, from_block, to_block) -> 0:
-        r=requests.get(f"https://api.basescan.org/api?module=account&action=txlist&address={pair.token}&startblock={from_block}&endblock={to_block}&page=1&offset={PAGE_SIZE}&sort=asc&apikey={self.select_api_key()}")
+        r=requests.get(f"{self.etherscan_api_url}/api?module=account&action=txlist&address={pair.token}&startblock={from_block}&endblock={to_block}&page=1&offset={PAGE_SIZE}&sort=asc&apikey={self.select_api_key()}")
         if r.status_code==STATUS_CODE_SUCCESS:
             res=r.json()
             if int(res['status'])==1 and len(res['result'])>0:
@@ -125,31 +133,6 @@ class PairInspector(metaclass=Singleton):
         if blacklist is not None:
             logging.warning(f"INSPECTOR pair {pair.address} is blacklisted due to rogue creator")
             return MaliciousPair.CREATOR_BLACKLISTED
-
-        # TODO: disable due to ineffective
-        # inspect add/remove liquidity within time window
-        # if is_initial:
-        #     block_number_window = round(ROGUE_CREATOR_FROZEN_SECONDS/2)
-        #     r=requests.get(f"https://api.basescan.org/api?module=account&action=txlist&address={pair.creator.lower()}&startblock={block_number-block_number_window}&endblock={block_number-1}&page=1&offset={CREATOR_TX_HISTORY_PAGE_SIZE}&sort=desc&apikey={self.select_api_key()}")
-        #     if r.status_code==STATUS_CODE_SUCCESS:
-        #         res=r.json()
-        #         if int(res['status'])==1 and len(res['result'])>0:
-        #             min_pair_lifetime=0
-        #             end_block_number=0
-        #             for tx in res['result']:
-        #                 if tx['from'].lower()==pair.creator.lower() and tx['to'].lower()==constants.UNI_V2_ROUTER_ADDRESS.lower():
-        #                     if tx['methodId'].lower()==constants.REMOVE_LIQUIDITY_METHOD_ID.lower():
-        #                         logging.debug(f"Remove liquidity at {tx['blockNumber']}")
-        #                         end_block_number=int(tx['blockNumber'])
-        #                     elif tx['methodId'].lower()==constants.ADD_LIQUIDITY_METHOD_ID.lower():
-        #                         logging.debug(f"Add liquidity at {tx['blockNumber']}")
-        #                         if min_pair_lifetime>end_block_number-int(tx['blockNumber']) or min_pair_lifetime==0:
-        #                             min_pair_lifetime=end_block_number-int(tx['blockNumber'])
-        #                             logging.debug(f"INSPECTOR Min pair lifetime updated {min_pair_lifetime}")
-
-        #             if min_pair_lifetime>0 and min_pair_lifetime*2<(MAX_INSPECT_ATTEMPTS-1)*INSPECT_INTERVAL_SECONDS+HOLD_MAX_DURATION_SECONDS:
-        #                 logging.warning(f"INSPECTOR Creator {pair.creator} detected malicious caused by Min-pair-lifetime {min_pair_lifetime*2}s less than Expected-hold-time {(MAX_INSPECT_ATTEMPTS-1)*INSPECT_INTERVAL_SECONDS+HOLD_MAX_DURATION_SECONDS}s")
-        #                 return MaliciousPair.CREATOR_RUGGED
         
         return MaliciousPair.UNMALICIOUS
     
@@ -184,7 +167,7 @@ class PairInspector(metaclass=Singleton):
         
             result.number_tx_mm=self.number_tx_mm(pair,from_block,block_number)
 
-        simulator = Simulator(
+        simulator = RevmSimulator(
             http_url=self.http_url,
             signer=self.signer,
             router_address=self.router,
@@ -200,7 +183,7 @@ class PairInspector(metaclass=Singleton):
             if simulation_result.slippage > SLIPPAGE_MIN_THRESHOLD and simulation_result.slippage < SLIPPAGE_MAX_THRESHOLD:
                 result.simulation_result=simulation_result
             else:
-                logging.warning(f"INSPECTOR simulation result rejected due to high slippage {simulation_result.slippage}")
+                logging.warning(f"INSPECTOR simulation result rejected due to abnormal slippage {simulation_result.slippage}")
 
         return result
     
@@ -233,6 +216,7 @@ if __name__=="__main__":
     inspector = PairInspector(
         http_url=os.environ.get('HTTPS_URL'),
         api_keys=os.environ.get('BASESCAN_API_KEYS'),
+        etherscan_api_url=os.environ.get('ETHERSCAN_API_URL'),
         signer=Web3.to_checksum_address(os.environ.get('MANAGER_ADDRESS')),
         router=Web3.to_checksum_address(os.environ.get('ROUTER_ADDRESS')),
         weth=Web3.to_checksum_address(os.environ.get('WETH_ADDRESS')),
@@ -243,14 +227,14 @@ if __name__=="__main__":
     )
 
     pair = Pair(
-        address="0x56aa4f3e4423f5a76a57021984e4071a67da46fc",
-        token="0xf8b1f7b38972c0db678c7e0868172cb92ada24a3",
+        address="0xb6d3fdd13445873522e5f64e06794dfdd19e083f",
+        token="0xc44644e2ed33e7402199aed8b9e7e889c15cc98d",
         token_index=0,
-        reserve_eth=3,
+        reserve_eth=10,
         reserve_token=0,
         created_at=0,
         inspect_attempts=1,
-        creator="0x9b5cd354a9f370241bcd56a6c6c7bba4d8e263e1",
+        creator="0xe610ab3156861e9c7b70666aad09c7af4d52cb2e",
         contract_verified=False,
         number_tx_mm=0,
         last_inspected_block=0, # is the created_block as well
@@ -261,4 +245,4 @@ if __name__=="__main__":
     # print(f"number mm_tx {inspector.number_tx_mm(pair, 18441096, 18441130)}")
     # print(f"is malicious {inspector.is_malicious(pair)}")
 
-    inspector.inspect_batch([pair], 18779770, is_initial=True)
+    inspector.inspect_batch([pair], 41659816, is_initial=True)

@@ -7,12 +7,6 @@ This folder contains source code of Sniper bot.
 $ forge build
 ```
 
-### Test
-
-```shell
-$ forge test
-```
-
 ### Fork test
 
 ```shell
@@ -39,14 +33,20 @@ $ anvil
 
 ### Deploy
 
-- Deploy LPBot
+- Deploy Factory
 ```shell
 $ forge create \
 --rpc-url <rpc-url> \
 --private-key <private-key> \
---etherscan-api-key <etherscan-api-key> --verify \
-src/BootstrapBot.sol:BootstrapBot \
---constructor-args <joeroutev2-address> <lbrouter-address> <joefactory-address> <avex-token-address> <wavax-token-address>
+src/Factory.sol:Factory
+```
+
+- Deploy Bot implementation
+```shell
+$ forge create \
+--rpc-url <rpc-url> \
+--private-key <private-key> \
+src/SnipeBot.sol:SnipeBot
 ```
 
 ### Cast

@@ -20,7 +20,7 @@ from helpers.utils import load_contract_bin, encode_address, encode_uint, func_s
 
 from data import SimulationResult, Pair
 
-class Simulator:
+class EthCallSimulator:
     @timer_decorator
     def __init__(self, 
                  http_url, 
@@ -129,7 +129,7 @@ class Simulator:
             assert len(resultBuy[0]) == 2
             assert resultBuy[0][0] == Web3.to_wei(amount, 'ether')
 
-            logging.debug(f"SIMULATOR buy result {resultBuy}")
+            logging.info(f"SIMULATOR buy result {resultBuy}")
 
             # sell
             storage_index = calculate_balance_storage_index(self.bot.address, 0)
@@ -153,7 +153,7 @@ class Simulator:
             assert len(resultSell[0]) == 2
             assert resultSell[0][0] == resultBuy[0][1]
 
-            logging.debug(f"SIMULATOR sell result {resultSell}")
+            logging.info(f"SIMULATOR sell result {resultSell}")
 
             amount_out = Web3.from_wei(resultSell[0][1], 'ether')
             slippage = (Decimal(amount) - Decimal(amount_out))/Decimal(amount)*Decimal(10000)
@@ -192,7 +192,7 @@ if __name__ == '__main__':
     GAS_LIMIT = 200*10**3
     FEE_BPS = 25
 
-    simulator = Simulator(
+    simulator = EthCallSimulator(
                     http_url=os.environ.get('HTTPS_URL'),
                     signer=Web3.to_checksum_address(os.environ.get('MANAGER_ADDRESS')),
                     router_address=Web3.to_checksum_address(os.environ.get('ROUTER_ADDRESS')),

@@ -23,7 +23,6 @@ from helpers.utils import load_contract_bin, encode_address, encode_uint, func_s
 from data import SimulationResult, Pair
 
 class RevmSimulator:
-    @timer_decorator
     def __init__(self, 
                  http_url, 
                  signer, 
@@ -53,9 +52,9 @@ class RevmSimulator:
     def inspect_token_by_swap(self, token, amount) -> None:
         try:
             # fake balance 
-            logging.info(f"Balance before {Web3.from_wei(self.evm.get_balance(self.signer), 'ether')}")
+            logging.debug(f"Balance before {Web3.from_wei(self.evm.get_balance(self.signer), 'ether')}")
             self.evm.set_balance(self.signer, 1000*10**18)
-            logging.info(f"Balance after {Web3.from_wei(self.evm.get_balance(self.signer), 'ether')}")
+            logging.debug(f"Balance after {Web3.from_wei(self.evm.get_balance(self.signer), 'ether')}")
 
             # buy
             result = self.evm.message_call(
@@ -73,7 +72,7 @@ class RevmSimulator:
             assert len(resultBuy[0]) == 2
             assert resultBuy[0][0] == Web3.to_wei(amount, 'ether')
 
-            logging.info(f"SIMULATOR buy result {resultBuy}")
+            logging.debug(f"SIMULATOR buy result {resultBuy}")
 
             # sell
             result = self.evm.message_call(
@@ -91,7 +90,7 @@ class RevmSimulator:
             assert len(resultSell[0]) == 2
             assert resultSell[0][0] == resultBuy[0][1]
 
-            logging.info(f"SIMULATOR sell result {resultSell}")
+            logging.debug(f"SIMULATOR sell result {resultSell}")
 
             amount_out = Web3.from_wei(resultSell[0][1], 'ether')
             slippage = (Decimal(amount) - Decimal(amount_out))/Decimal(amount)*Decimal(10000)

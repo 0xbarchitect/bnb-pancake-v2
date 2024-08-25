@@ -10,7 +10,7 @@ import threading
 import websockets
 
 from web3 import AsyncWeb3, Web3
-from web3.providers import WebsocketProviderV2, HTTPProvider, WebsocketProvider
+from web3.providers import WebsocketProviderV2
 from web3.middleware import async_geth_poa_middleware
 
 import sys # for testing
@@ -19,6 +19,8 @@ sys.path.append('..')
 from library import Singleton
 from data import BlockData, Pair, ExecutionAck, FilterLogs, FilterLogsType, ReportData, ReportDataType, TxStatus
 from helpers import async_timer_decorator, load_abi, timer_decorator
+
+ADDRESS_ZERO="0x0000000000000000000000000000000000000000"
 
 glb_lock = threading.Lock()
 
@@ -42,9 +44,8 @@ class BlockWatcher(metaclass=Singleton):
 
         async for w3Async in AsyncWeb3.persistent_websocket(WebsocketProviderV2(self.wss_url)):
             w3Async.middleware_onion.inject(async_geth_poa_middleware, layer=0)
-
             try:
-                logging.info(f"websocket connected...")
+                logging.info(f"WATCHER websocket connected...")
 
                 subscription_id = await w3Async.eth.subscribe("newHeads")
                 async for response in w3Async.ws.process_subscriptions():
@@ -56,11 +57,11 @@ class BlockWatcher(metaclass=Singleton):
                     gas_used = response['result']['gasUsed']
                     gas_limit = response['result']['gasLimit']
 
-                    logging.info(f"block number {block_number} timestamp {block_timestamp}")
+                    logging.debug(f"block number {block_number} timestamp {block_timestamp}")
 
                     pairs = self.filter_log_in_block(block_number, block_timestamp)
 
-                    logging.info(f"WATCHER found pairs {pairs}")
+                    logging.debug(f"WATCHER found pairs {pairs}")
 
                     self.block_broker.put(BlockData(
                         block_number,
@@ -73,8 +74,27 @@ class BlockWatcher(metaclass=Singleton):
                     ))
 
             except websockets.ConnectionClosed:
-                logging.error(f"websocket connection closed, reconnect...")
+                logging.error(f"WATCHER websocket connection closed, reconnect...")
                 continue
+
+    @timer_decorator
+    def get_reserves_and_creator(self, pair_address, block_number):
+        contract = self.w3.eth.contract(address=pair_address, abi=self.pair_abi)
+        reserves = contract.functions.getReserves().call()
+
+        mint_logs = contract.events.Transfer().get_logs(
+            fromBlock=block_number,
+            toBlock=block_number,
+        )
+
+        creator = None
+        if mint_logs != ():
+            for log in mint_logs:
+                if log['args']['to'] != ADDRESS_ZERO:
+                    creator = log['args']['to']
+                    break
+
+        return (reserves, creator)
 
     @timer_decorator
     def get_reserves(self, pair_address):
@@ -84,7 +104,7 @@ class BlockWatcher(metaclass=Singleton):
     
     @timer_decorator
     def filter_log_in_block(self, block_number, block_timestamp):
-        block_number = 41327949 # TODO
+        #block_number = 41327949 # TODO
 
         def filter_paircreated_log(block_number):
             pair_created_logs = self.factory.events.PairCreated().get_logs(
@@ -95,7 +115,7 @@ class BlockWatcher(metaclass=Singleton):
             pairs = []
             if pair_created_logs != ():
                 for log in pair_created_logs:
-                    logging.info(f"found pair created {log}")
+                    logging.debug(f"WATCHER found pair created {log}")
                     if log['args']['token0'].lower() == self.weth_address.lower() or log['args']['token1'].lower() == self.weth_address.lower():
                         pairs.append(Pair(
                             token=log['args']['token0'] if log['args']['token1'].lower() == self.weth_address.lower() else log['args']['token1'],
@@ -105,16 +125,20 @@ class BlockWatcher(metaclass=Singleton):
                         ))
 
             with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-                future_to_pair = {executor.submit(self.get_reserves, pair.address): idx for idx,pair in enumerate(pairs)}
+                future_to_pair = {executor.submit(self.get_reserves_and_creator, pair.address, block_number): idx for idx,pair in enumerate(pairs)}
                 for future in concurrent.futures.as_completed(future_to_pair):
                     idx = future_to_pair[future]
                     try:
                         result = future.result()
-                        logging.info(f"getReserves {pairs[idx].address} result {result}")
-                        pairs[idx].reserve_token = Web3.from_wei(result[0],'ether') if pairs[idx].token_index == 0 else Web3.from_wei(result[1], 'ether')
-                        pairs[idx].reserve_eth = Web3.from_wei(result[1],'ether') if pairs[idx].token_index == 0 else Web3.from_wei(result[0], 'ether')
+                        logging.debug(f"WATCHER getReserves {pairs[idx].address} result {result}")
+                        if result[0] is not None and len(result[0])>1:
+                            pairs[idx].reserve_token = Web3.from_wei(result[0][0],'ether') if pairs[idx].token_index == 0 else Web3.from_wei(result[0][1], 'ether')
+                            pairs[idx].reserve_eth = Web3.from_wei(result[0][1],'ether') if pairs[idx].token_index == 0 else Web3.from_wei(result[0][0], 'ether')
+                        
+                        if result[1] is not None:
+                            pairs[idx].creator = Web3.to_checksum_address(result[1])
                     except Exception as e:
-                        logging.error(f"getReserves {pair} error {e}")
+                        logging.error(f"WATCHER getReserves {pairs[idx].address} error {e}")
 
             return FilterLogs(
                 type=FilterLogsType.PAIR_CREATED,
@@ -168,16 +192,16 @@ class BlockWatcher(metaclass=Singleton):
                         elif result.type == FilterLogsType.SYNC:
                             if result.data != ():
                                 for log in result.data:
-                                    logging.info(f"sync {log}")
+                                    logging.debug(f"sync {log}")
 
                                     for pair in self.inventory:
                                         if pair.address == contract:
-                                            logging.info(f"update reserves for inventory {pair.address}")
+                                            logging.debug(f"WATCHER update reserves for inventory pair {pair.address}")
                                             pair.reserve_token = Web3.from_wei(log['args']['reserve0'], 'ether') if pair.token_index==0 else Web3.from_wei(log['args']['reserve1'], 'ether')
                                             pair.reserve_eth = Web3.from_wei(log['args']['reserve1'], 'ether') if pair.token_index==0 else Web3.from_wei(log['args']['reserve0'], 'ether')
 
                 except Exception as e:
-                    logging.error(f"contract {contract} error {e}")
+                    logging.error(f"WATCHER pair {contract} error {e}")
         
         return pairs
     
@@ -187,32 +211,35 @@ class BlockWatcher(metaclass=Singleton):
         def add_pair_to_inventory(pair):
             # sync current reserves
             result = self.get_reserves(pair.address)
-            logging.info(f"get reserves {pair} result {result}")
+            logging.debug(f"WATCHER get reserves {pair.address} result {result}")
 
             pair.reserve_token = Web3.from_wei(result[0],'ether') if pair.token_index == 0 else Web3.from_wei(result[1], 'ether')
             pair.reserve_eth = Web3.from_wei(result[1],'ether') if pair.token_index == 0 else Web3.from_wei(result[0], 'ether')
 
             with glb_lock:
                 self.inventory.append(pair)
-            logging.info(f"WATCHER add pair {pair} to watching {len(self.inventory)}")
+            logging.info(f"WATCHER add pair {pair.address} to inventory length {len(self.inventory)}")
 
         def remove_pair_from_inventory(pair):
             for idx,pr in enumerate(self.inventory):
                 if pr.address == pair.address:
                     with glb_lock:
                         self.inventory.pop(idx)
-                        logging.info(f"WATCHER remove pair {pair} from watching {len(self.inventory)}")
+                        logging.info(f"WATCHER remove pair {pair.address} from inventory length {len(self.inventory)}")
 
         while True:
             report = await self.report_broker.coro_get()
 
             if report is not None and isinstance(report, ExecutionAck) and report.pair is not None:
-                logging.info(f"WATCHER receive report {report}")
-                if report.is_buy and report.tx_status == TxStatus.SUCCESS:
-                    if report.pair.address not in [pair.address for pair in self.inventory]:
-                        add_pair_to_inventory(report.pair)
-                else:
-                    remove_pair_from_inventory(report.pair)
+                try:
+                    logging.info(f"WATCHER receive report {report}")
+                    if report.is_buy and report.tx_status == TxStatus.SUCCESS:
+                        if report.pair.address not in [pair.address for pair in self.inventory]:
+                            add_pair_to_inventory(report.pair)
+                    else:
+                        remove_pair_from_inventory(report.pair)
+                except Exception as e:
+                    logging.error(f"WATCHER Process report error:: {e}")
 
     
     async def main(self):
@@ -234,20 +261,20 @@ if __name__ == "__main__":
     block_broker = aioprocessing.AioQueue()
     report_broker = aioprocessing.AioQueue()
 
-    # report_broker.put(ExecutionAck(
-    #     lead_block=0,
-    #     block_number=0,
-    #     tx_hash='0xabc',
-    #     tx_status=1,
-    #     pair=Pair(
-    #         address='0x9694DE8E322212ECf96e9276B8ab5c0b2f7a3a24',            
-    #         token='0x2E5387d321b358e8161C8F2ec00436006A7D07E2',
-    #         token_index=0,
-    #     ),
-    #     amount_in=1,
-    #     amount_out=1,
-    #     is_buy=True,
-    # ))
+    report_broker.put(ExecutionAck(
+        lead_block=0,
+        block_number=0,
+        tx_hash='0xabc',
+        tx_status=1,
+        pair=Pair(
+            address='0x9694DE8E322212ECf96e9276B8ab5c0b2f7a3a24',            
+            token='0x2E5387d321b358e8161C8F2ec00436006A7D07E2',
+            token_index=0,
+        ),
+        amount_in=1,
+        amount_out=1,
+        is_buy=True,
+    ))
 
     # report_broker.put(ExecutionAck(
     #     lead_block=0,
@@ -301,6 +328,7 @@ if __name__ == "__main__":
 
         await asyncio.gather(block_watcher.main(), receive_block())
     
+    #asyncio.run(block_watcher.main())
     asyncio.run(run_all())
 
 

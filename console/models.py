@@ -57,6 +57,7 @@ class Pair(models.Model):
     reserve_eth = models.FloatField(null=True, default=0)
     deployed_at = models.DateTimeField(null=True)
     creator = models.CharField(max_length=42, null=True)
+    deployed_block = models.IntegerField(null=True, default=0)
 
     created_at = models.DateTimeField(null=True,auto_now_add=True)
     updated_at = models.DateTimeField(null=True,auto_now=True)

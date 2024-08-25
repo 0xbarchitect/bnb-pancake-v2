@@ -52,9 +52,9 @@ class TransactionAdmin(FullPermissionModelAdmin):
 
 class PairAdmin(FullPermissionModelAdmin):
     list_filter = ['is_deleted']
-    list_display = ('id', 'address', 'token', 'token_index', 'creator', 'reserve_token', 'reserve_eth', 'deployed_at', 'buttons')
-    fields = ('address', 'token', 'token_index', 'creator', 'reserve_token', 'reserve_eth', 'deployed_at',)
-    readonly_fields = ('address', 'token', 'token_index', 'creator', 'reserve_token', 'reserve_eth', 'deployed_at',)
+    list_display = ('id', 'address', 'token', 'token_index', 'creator', 'deployed_block', 'reserve_token', 'reserve_eth', 'buttons')
+    fields = ('address', 'token', 'token_index', 'creator', 'reserve_token', 'reserve_eth', 'deployed_block', 'deployed_at',)
+    readonly_fields = ('address', 'token', 'token_index', 'creator', 'reserve_token', 'reserve_eth', 'deployed_block', 'deployed_at',)
     
     @admin.display(description='Actions')
     def buttons(self, obj):

@@ -67,6 +67,7 @@ class Reporter(metaclass=Singleton):
                         reserve_eth=pair.reserve_eth,
                         deployed_at=make_aware(datetime.fromtimestamp(report.data.block_timestamp)),
                         creator=pair.creator.lower() if pair.creator is not None else None,
+                        deployed_block=report.data.block_number,
                     )
                     await pair_ins.asave()
                     logging.debug(f"pair saved with id #{pair_ins.id}")

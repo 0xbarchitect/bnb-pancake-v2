@@ -105,6 +105,7 @@ class PairInspector(metaclass=Singleton):
         
         if int(txlist['status'])==constants.TX_SUCCESS_STATUS and len(txlist['result'])>0:
             txs = [tx for tx in txlist['result'] if tx['to'].lower()==pair.token.lower() and tx['methodId'] not in [constants.APPROVE_METHOD_ID]]
+            logging.warning(f"INSPECTOR Pair {pair.address} detected malicious due to abnormal incoming txs {txs}")
             return len(txs)
             
         return 0
@@ -188,7 +189,7 @@ class PairInspector(metaclass=Singleton):
         
         if not is_initial:
             result.is_creator_call_contract=self.is_creator_call_contract(pair,from_block,block_number)
-            if result.is_creator_call_contract>0:
+            if result.is_creator_call_contract>0:                
                 return result
         
             result.number_tx_mm=self.number_tx_mm(pair,from_block,block_number)
@@ -255,9 +256,9 @@ if __name__=="__main__":
     )
 
     pair = Pair(
-        address="0x8294ebc15dafa9d333bc49d6599feabe748e843e",
-        token="0x144e57a3adee6cd388c2284e8a007aea7639615d",
-        token_index=0,
+        address="0xbc7d9a0d50efbf853dfd0964b795a02d569d7f33",
+        token="0xef0a76f048a476c60c11efd6badf7839b1c2e680",
+        token_index=1,
         creator="0xe610ab3156861e9c7b70666aad09c7af4d52cb2e",
         reserve_eth=10,
         reserve_token=0,
@@ -265,7 +266,7 @@ if __name__=="__main__":
         inspect_attempts=1,
         contract_verified=False,
         number_tx_mm=0,
-        last_inspected_block=0, # is the created_block as well
+        last_inspected_block=41669474, # is the created_block as well
     )
 
     #print("contract verified") if inspector.is_contract_verified(pair) else print(f"contract unverified")
@@ -273,4 +274,4 @@ if __name__=="__main__":
     #print(f"number mm_tx {inspector.number_tx_mm(pair, 41665828, 41665884)}")
     #print(f"is malicious {inspector.is_malicious(pair, 41665828, is_initial=True)}")
 
-    inspector.inspect_batch([pair], 41668421, is_initial=True)
+    inspector.inspect_batch([pair], 41669560, is_initial=False)

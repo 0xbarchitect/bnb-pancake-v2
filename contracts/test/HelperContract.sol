@@ -10,9 +10,9 @@ import {ERC20Token} from "../src/ERC20Token.sol";
 abstract contract HelperContract {
   ERC20Token public token;
 
-  address constant ROUTERV2 = 0x10ED43C718714eb63d5aA57B78B54704E256024E;
-  address constant FACTORYV2 = 0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73;
-  address constant WETH = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
+  address constant ROUTERV2 = 0x4752ba5DBc23f44D87826276BF6Fd6b1C372aD24;
+  address constant FACTORYV2 = 0x8909Dc15e40173Ff4699343b6eB8132c65e18eC6;
+  address constant WETH = 0x4200000000000000000000000000000000000006;
 
   uint256 constant TOTAL_SUPPLY = 1_000_000_000 * 10**18;
   uint256 constant INITIAL_AVAX_RESERVE = 10**18;

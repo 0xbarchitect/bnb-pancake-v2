@@ -170,7 +170,7 @@ class Simulator:
         else:
             result = self.inspect_token_by_swap(pair.token, amount)
 
-        if result is not None:  
+        if result is not None:
             return SimulationResult(
                 pair=pair,
                 amount_in=result[0],

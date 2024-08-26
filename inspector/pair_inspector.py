@@ -141,25 +141,25 @@ class PairInspector(metaclass=Singleton):
             logging.warning(f"INSPECTOR pair {pair.address} is blacklisted due to rogue creator")
             return MaliciousPair.CREATOR_BLACKLISTED
         
-        # get token creation tx
-        if is_initial:
-            try:
-                r=requests.get(f"{self.etherscan_api_url}/api?module=contract&action=getcontractcreation&contractaddresses={pair.token}&apikey={self.select_api_key()}")
-                if r.status_code==STATUS_CODE_SUCCESS:
-                    res=r.json()
-                    if int(res['status'])==1 and res['result'][0]['txHash'] is not None:
-                        tx_receipt = self.w3.eth.get_transaction_receipt(res['result'][0]['txHash'])
-                        txlist = self.get_txlist(pair.token, tx_receipt['blockNumber'], block_number)
-                        if int(txlist['status'])==constants.TX_SUCCESS_STATUS and txlist['result'] is not None:
-                            for tx in txlist['result']:
-                                if tx['to'].lower()==pair.token.lower() and tx['methodId'] not in [constants.APPROVE_METHOD_ID,constants.TRANSFER_METHOD_ID,constants.RENOUNCE_OWNERSHIP_METHOD_ID]:
-                                    logging.warning(f"INSPECTOR pair {pair.address} detected malicious due to abnormal incoming tx {tx}")
-                                    return MaliciousPair.MALICIOUS_TX_IN
-                else:
-                    logging.error(f"INSPECTOR GetContractCreation error {r.status_code}")
-            except Exception as e:
-                logging.error(f"INSPECTOR IsMalicious check error:: {e}")
+        # check malicious tx
+        try:
+            r=requests.get(f"{self.etherscan_api_url}/api?module=contract&action=getcontractcreation&contractaddresses={pair.token}&apikey={self.select_api_key()}")
+            if r.status_code==STATUS_CODE_SUCCESS:
+                res=r.json()
+                if int(res['status'])==1 and res['result'][0]['txHash'] is not None:
+                    tx_receipt = self.w3.eth.get_transaction_receipt(res['result'][0]['txHash'])
+                    txlist = self.get_txlist(pair.token, tx_receipt['blockNumber'], block_number)
+                    if int(txlist['status'])==constants.TX_SUCCESS_STATUS and txlist['result'] is not None:
+                        for tx in txlist['result']:
+                            if tx['to'].lower()==pair.token.lower() and tx['methodId'] not in [constants.APPROVE_METHOD_ID,constants.TRANSFER_METHOD_ID,constants.RENOUNCE_OWNERSHIP_METHOD_ID]:
+                                logging.warning(f"INSPECTOR pair {pair.address} detected malicious due to abnormal incoming tx {tx}")
+                                return MaliciousPair.MALICIOUS_TX_IN
+            else:
+                logging.error(f"INSPECTOR GetContractCreation error {r.status_code}")
                 return MaliciousPair.UNVERIFIED
+        except Exception as e:
+            logging.error(f"INSPECTOR IsMalicious check error:: {e}")
+            return MaliciousPair.UNVERIFIED
 
         return MaliciousPair.UNMALICIOUS
     
@@ -256,10 +256,10 @@ if __name__=="__main__":
     )
 
     pair = Pair(
-        address="0x0bCF9064a4363ac60350042c8390aeb034d2B6d6",
-        token="0xd67ac67ff99153a76ec881bfd8be006789e32b4e",
-        token_index=1,
-        creator="0xe610ab3156861e9c7b70666aad09c7af4d52cb2e",
+        address="0x34133668a32b9f014df6d3d69d3ce94c06feacbd",
+        token="0x8885204c06546592c0425c584c650743f1a15bec",
+        token_index=0,
+        creator="0x000000000000000000000000000000000000dead",
         reserve_eth=10,
         reserve_token=0,
         created_at=0,
@@ -274,4 +274,4 @@ if __name__=="__main__":
     #print(f"number mm_tx {inspector.number_tx_mm(pair, 41665828, 41665884)}")
     #print(f"is malicious {inspector.is_malicious(pair, 41665828, is_initial=True)}")
 
-    inspector.inspect_batch([pair], 41670087, is_initial=False)
+    inspector.inspect_batch([pair], 41679809, is_initial=True)

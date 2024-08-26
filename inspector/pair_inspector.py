@@ -104,8 +104,9 @@ class PairInspector(metaclass=Singleton):
         txlist = self.get_txlist(pair.token, from_block, to_block)
         
         if int(txlist['status'])==constants.TX_SUCCESS_STATUS and len(txlist['result'])>0:
-            txs = [tx for tx in txlist['result'] if tx['to'].lower()==pair.token.lower() and tx['methodId'] not in [constants.APPROVE_METHOD_ID]]
-            logging.warning(f"INSPECTOR Pair {pair.address} detected malicious due to abnormal incoming txs {txs}")
+            txs = [tx for tx in txlist['result'] if int(tx['txreceipt_status'])==constants.TX_SUCCESS_STATUS and tx['to'].lower()==pair.token.lower() and tx['methodId'] not in [constants.APPROVE_METHOD_ID]]
+            if len(txs)>0:
+                logging.warning(f"INSPECTOR Pair {pair.address} detected malicious due to abnormal incoming txs {txs}")
             return len(txs)
             
         return 0
@@ -151,7 +152,7 @@ class PairInspector(metaclass=Singleton):
                     txlist = self.get_txlist(pair.token, tx_receipt['blockNumber'], block_number)
                     if int(txlist['status'])==constants.TX_SUCCESS_STATUS and txlist['result'] is not None:
                         for tx in txlist['result']:
-                            if tx['to'].lower()==pair.token.lower() and tx['methodId'] not in [constants.APPROVE_METHOD_ID,constants.TRANSFER_METHOD_ID,constants.RENOUNCE_OWNERSHIP_METHOD_ID]:
+                            if int(tx['txreceipt_status'])==constants.TX_SUCCESS_STATUS and tx['to'].lower()==pair.token.lower() and tx['methodId'] not in [constants.APPROVE_METHOD_ID,constants.TRANSFER_METHOD_ID,constants.RENOUNCE_OWNERSHIP_METHOD_ID]:
                                 logging.warning(f"INSPECTOR pair {pair.address} detected malicious due to abnormal incoming tx {tx}")
                                 return MaliciousPair.MALICIOUS_TX_IN
             else:
@@ -256,17 +257,17 @@ if __name__=="__main__":
     )
 
     pair = Pair(
-        address="0x34133668a32b9f014df6d3d69d3ce94c06feacbd",
-        token="0x8885204c06546592c0425c584c650743f1a15bec",
+        address="0x40f7086e93d5974795a6fa1c4d1de69e704e8751",
+        token="0x0a8832872959078cadf563c6f0bc97673a6f3002",
         token_index=0,
-        creator="0x000000000000000000000000000000000000dead",
+        creator="0xd5027082ece830c56d07ec9d3d84b580d2d8f59d",
         reserve_eth=10,
         reserve_token=0,
         created_at=0,
         inspect_attempts=1,
         contract_verified=False,
         number_tx_mm=0,
-        last_inspected_block=41669640, # is the created_block as well
+        last_inspected_block=41689857, # is the created_block as well
     )
 
     #print("contract verified") if inspector.is_contract_verified(pair) else print(f"contract unverified")
@@ -274,4 +275,4 @@ if __name__=="__main__":
     #print(f"number mm_tx {inspector.number_tx_mm(pair, 41665828, 41665884)}")
     #print(f"is malicious {inspector.is_malicious(pair, 41665828, is_initial=True)}")
 
-    inspector.inspect_batch([pair], 41679809, is_initial=True)
+    inspector.inspect_batch([pair], 41690011, is_initial=False)

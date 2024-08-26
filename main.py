@@ -204,6 +204,7 @@ async def strategy(watching_broker, execution_broker, report_broker, watching_no
                                 with glb_lock:
                                     pair.inspect_attempts += 1
                                     pair.number_tx_mm = result.number_tx_mm
+                                    pair.contract_verified = result.contract_verified if not pair.contract_verified else pair.contract_verified
                                     # TODO: last_inspected_block is not updated and stay as initial value created_block_number
                                     # in order to re-verify multiple times to gain reliability
                                     #pair.last_inspected_block = block_data.block_number
@@ -215,10 +216,10 @@ async def strategy(watching_broker, execution_broker, report_broker, watching_no
                                     glb_watchlist.pop(idx)
                                 logging.warning(f"MAIN remove pair {pair.address} from watching list at index #{idx} caused by reaching max attempts {MAX_INSPECT_ATTEMPTS}")
 
-                                if RUN_MODE==constants.NORMAL_RUN_MODE and pair.number_tx_mm >= NUMBER_TX_MM_THRESHOLD:
+                                if RUN_MODE==constants.NORMAL_RUN_MODE and pair.number_tx_mm >= NUMBER_TX_MM_THRESHOLD and pair.contract_verified:
                                     send_exec_order(block_data, pair)
                                 else:
-                                    logging.info(f"MAIN pair {pair.address} not qualified for order due to numberTxMM {pair.number_tx_mm} is not sufficient")
+                                    logging.info(f"MAIN pair {pair.address} not qualified for execution due to numberTxMM {pair.number_tx_mm} is not sufficient or contract unverified")
 
                 # remove simulation failed pair
                 failed_pairs = [pair.address for pair in inspection_batch if pair.address not in [result.simulation_result.pair.address for result in results if result.simulation_result is not None]]

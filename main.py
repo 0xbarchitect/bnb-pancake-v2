@@ -376,7 +376,7 @@ async def main():
                             glb_daily_pnl = (glb_daily_pnl[0], glb_daily_pnl[1] + pnl)
 
                             # if PnL exceed threshold then increase the buy-amount and reset the PnL
-                            if glb_daily_pnl[1]>calculate_expect_pnl(BUY_AMOUNT,MIN_BUY_AMOUNT,MIN_EXPECTED_PNL,RISK_REWARD_RATIO):
+                            if glb_daily_pnl[1]>calculate_expect_pnl(BUY_AMOUNT,MIN_BUY_AMOUNT,MIN_EXPECTED_PNL,RISK_REWARD_RATIO) and BUY_AMOUNT+AMOUNT_CHANGE_STEP<=MAX_BUY_AMOUNT:
                                 BUY_AMOUNT+=AMOUNT_CHANGE_STEP
                                 glb_daily_pnl = (glb_daily_pnl[0], 0)
                                 logging.warning(f"MAIN increase buy-amount to {BUY_AMOUNT} caused by PnL exceed threshold {calculate_expect_pnl(BUY_AMOUNT,MIN_BUY_AMOUNT,MIN_EXPECTED_PNL,RISK_REWARD_RATIO)}, reset PnL")

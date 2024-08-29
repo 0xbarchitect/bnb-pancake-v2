@@ -21,7 +21,8 @@ from watcher import BlockWatcher
 from inspector import PairInspector
 from executor import BuySellExecutor
 from reporter import Reporter
-from helpers import load_abi, timer_decorator, calculate_price, calculate_next_block_base_fee, constants
+from helpers import load_abi, timer_decorator, calculate_price, calculate_next_block_base_fee, \
+                        constants, get_hour_in_vntz, calculate_expect_pnl
 
 from data import ExecutionOrder, SimulationResult, ExecutionAck, Position, TxStatus, \
                     ReportData, ReportDataType, BlockData, Pair, MaliciousPair, InspectionResult
@@ -59,6 +60,13 @@ NUMBER_TX_MM_THRESHOLD=int(os.environ.get('NUMBER_TX_MM_THRESHOLD'))
 # buy/sell tx config
 INVENTORY_CAPACITY=int(os.environ.get('INVENTORY_CAPACITY'))
 BUY_AMOUNT=float(os.environ.get('BUY_AMOUNT'))
+AMOUNT_CHANGE_STEP=float(os.environ.get('AMOUNT_CHANGE_STEP'))
+MIN_BUY_AMOUNT=float(os.environ.get('MIN_BUY_AMOUNT'))
+MAX_BUY_AMOUNT=float(os.environ.get('MAX_BUY_AMOUNT'))
+MIN_EXPECTED_PNL=float(os.environ.get('MIN_EXPECTED_PNL'))
+RISK_REWARD_RATIO=float(os.environ.get('RISK_REWARD_RATIO'))
+EPOCH_TIME_HOURS=int(os.environ.get('EPOCH_TIME_HOURS'))
+
 DEADLINE_DELAY_SECONDS = 30
 GAS_LIMIT = 250*10**3
 MAX_FEE_PER_GAS = 10**9
@@ -91,6 +99,7 @@ async def strategy(watching_broker, execution_broker, report_broker, watching_no
     global glb_watchlist
     global glb_daily_pnl
     global glb_auto_run
+    global BUY_AMOUNT
 
     def calculate_pnl_percentage(position, pair):        
         numerator = Decimal(position.amount)*calculate_price(pair.reserve_token, pair.reserve_eth) - Decimal(BUY_AMOUNT) - Decimal(GAS_COST)
@@ -129,7 +138,7 @@ async def strategy(watching_broker, execution_broker, report_broker, watching_no
             ))
 
         # hardstop based on pnl
-        logging.info(f"[{glb_daily_pnl[0].strftime('%Y-%m-%d %H:00:00')}] PnL {glb_daily_pnl[1]}")
+        logging.info(f"[{glb_daily_pnl[0].strftime('%Y-%m-%d %H:00:00')}] Realized PnL {round(glb_daily_pnl[1],6)} Expected PnL {round(calculate_expect_pnl(BUY_AMOUNT, MIN_BUY_AMOUNT, MIN_EXPECTED_PNL, RISK_REWARD_RATIO),6)}")
 
         if RUN_MODE==constants.WATCHING_ONLY_MODE:
             logging.info(f"I'm happy watching =))...")
@@ -180,9 +189,15 @@ async def strategy(watching_broker, execution_broker, report_broker, watching_no
             continue
 
         if glb_daily_pnl[0].strftime('%Y-%m-%d %H') != datetime.now().strftime('%Y-%m-%d %H'):
-            with glb_lock:
-                glb_daily_pnl = (datetime.now(), 0)
-                logging.info(f"MAIN reset daily pnl at time {glb_daily_pnl[0].strftime('%Y-%m-%d %H:00:00')}")
+            if get_hour_in_vntz(datetime.now()) % EPOCH_TIME_HOURS == 0:
+                with glb_lock:
+                    glb_daily_pnl = (datetime.now(), 0)
+                    logging.info(f"MAIN reset epoch pnl at {glb_daily_pnl[0].strftime('%Y-%m-%d %H:00:00')}")
+
+            if int(get_hour_in_vntz(datetime.now()))==0:
+                with glb_lock:
+                    BUY_AMOUNT=float(os.environ.get('BUY_AMOUNT'))
+                    logging.info(f"MAIN reset buy-amount to initial value {BUY_AMOUNT} at 0 a.m VNT")
 
         if len(glb_watchlist)>0:
             logging.info(f"MAIN watching list {len(glb_watchlist)}")
@@ -325,6 +340,7 @@ async def main():
         global glb_fullfilled
         global glb_liquidated
         global glb_daily_pnl
+        global BUY_AMOUNT
 
         while True:
             report = await execution_report.coro_get()
@@ -359,6 +375,12 @@ async def main():
                             pnl = (Decimal(report.amount_out)-Decimal(BUY_AMOUNT)-Decimal(GAS_COST))/Decimal(BUY_AMOUNT)*Decimal(100)
                             glb_daily_pnl = (glb_daily_pnl[0], glb_daily_pnl[1] + pnl)
 
+                            # if PnL exceed threshold then increase the buy-amount and reset the PnL
+                            if glb_daily_pnl[1]>calculate_expect_pnl(BUY_AMOUNT,MIN_BUY_AMOUNT,MIN_EXPECTED_PNL,RISK_REWARD_RATIO):
+                                BUY_AMOUNT+=AMOUNT_CHANGE_STEP
+                                glb_daily_pnl = (glb_daily_pnl[0], 0)
+                                logging.warning(f"MAIN increase buy-amount to {BUY_AMOUNT} caused by PnL exceed threshold {calculate_expect_pnl(BUY_AMOUNT,MIN_BUY_AMOUNT,MIN_EXPECTED_PNL,RISK_REWARD_RATIO)}, reset PnL")
+
                             logging.info(f"MAIN update PnL {glb_daily_pnl}")
                 else:
                     logging.info(f"MAIN execution failed, reset lock...")
@@ -369,7 +391,17 @@ async def main():
                         with glb_lock:
                             glb_fullfilled -= 1
                             glb_liquidated = False
-                            glb_daily_pnl = (glb_daily_pnl[0], glb_daily_pnl[1] - 100)
+
+                            pnl = (-Decimal(BUY_AMOUNT)-Decimal(GAS_COST))/Decimal(BUY_AMOUNT)*Decimal(100)
+                            glb_daily_pnl = (glb_daily_pnl[0], glb_daily_pnl[1] + pnl)
+                            logging.info(f"MAIN update PnL to value {round(glb_daily_pnl[1],6)} upon liquidation failed")
+
+                            # decrease the buy-amount to reduce risk exposure
+                            if glb_daily_pnl[1]<-100 and BUY_AMOUNT-AMOUNT_CHANGE_STEP>=MIN_BUY_AMOUNT:
+                                BUY_AMOUNT-=AMOUNT_CHANGE_STEP
+                                glb_daily_pnl = (glb_daily_pnl[0], 0)
+                                logging.warning(f"MAIN decrease buy-amount to {BUY_AMOUNT} caused by PnL fall below -100, reset PnL")
+
 
                         report_broker.put(ReportData(
                             type=ReportDataType.BLACKLIST_ADDED,

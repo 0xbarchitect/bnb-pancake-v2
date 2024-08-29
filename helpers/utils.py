@@ -5,6 +5,7 @@ from typing import Any, Dict
 import random
 from decimal import Decimal
 import pytz
+from datetime import datetime
 import eth_utils
 
 def load_contract_bin(contract_path: str) -> bytes:
@@ -108,3 +109,11 @@ def calculate_allowance_storage_index(owner, spender, index):
 
 def rpad_int(amount):
     return "0x" + eth_utils.remove_0x_prefix(hex(amount)).rjust(64,'0')
+
+def calculate_expect_pnl(buy_amount, min_buy_amount, min_expected_pnl, rr_ratio):
+    return Decimal(min_buy_amount*min_expected_pnl/100 + (buy_amount-min_buy_amount)*rr_ratio)/Decimal(buy_amount)*Decimal(100)
+
+def get_hour_in_vntz(dt: datetime):
+    tz=pytz.timezone('Asia/Ho_Chi_Minh')
+    dt=dt.replace(tzinfo=tz)
+    return int(dt.strftime('%H'))

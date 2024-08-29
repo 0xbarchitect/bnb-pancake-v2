@@ -194,7 +194,7 @@ async def strategy(watching_broker, execution_broker, report_broker, watching_no
                     glb_daily_pnl = (datetime.now(), 0)
                     logging.info(f"MAIN reset epoch pnl at {glb_daily_pnl[0].strftime('%Y-%m-%d %H:00:00')}")
 
-            if int(get_hour_in_vntz(datetime.now()))==0:
+            if get_hour_in_vntz(datetime.now())==0:
                 with glb_lock:
                     BUY_AMOUNT=float(os.environ.get('BUY_AMOUNT'))
                     logging.info(f"MAIN reset buy-amount to initial value {BUY_AMOUNT} at 0 a.m VNT")

@@ -22,7 +22,7 @@ from inspector import PairInspector
 from executor import BuySellExecutor
 from reporter import Reporter
 from helpers import load_abi, timer_decorator, calculate_price, calculate_next_block_base_fee, \
-                        constants, get_hour_in_vntz, calculate_expect_pnl
+                        constants, get_hour_in_vntz, calculate_expect_pnl, determine_epoch
 
 from data import ExecutionOrder, SimulationResult, ExecutionAck, Position, TxStatus, \
                     ReportData, ReportDataType, BlockData, Pair, MaliciousPair, InspectionResult
@@ -138,7 +138,7 @@ async def strategy(watching_broker, execution_broker, report_broker, watching_no
             ))
 
         # hardstop based on pnl
-        logging.info(f"[{glb_daily_pnl[0].strftime('%Y-%m-%d %H:00:00')}] Realized PnL {round(glb_daily_pnl[1],6)} Expected PnL {round(calculate_expect_pnl(BUY_AMOUNT, MIN_BUY_AMOUNT, MIN_EXPECTED_PNL, RISK_REWARD_RATIO),6)}")
+        logging.info(f"[{glb_daily_pnl[0].strftime('%Y-%m-%d %H:00:00')}] Realized PnL {round(glb_daily_pnl[1],6)} Epoch {determine_epoch(EPOCH_TIME_HOURS)} Expected PnL {round(calculate_expect_pnl(BUY_AMOUNT, MIN_BUY_AMOUNT, MIN_EXPECTED_PNL, RISK_REWARD_RATIO),6)}")
 
         if RUN_MODE==constants.WATCHING_ONLY_MODE:
             logging.info(f"I'm happy watching =))...")

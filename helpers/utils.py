@@ -114,6 +114,9 @@ def calculate_expect_pnl(buy_amount, min_buy_amount, min_expected_pnl, rr_ratio)
     return Decimal(min_buy_amount*min_expected_pnl/100 + (buy_amount-min_buy_amount)*rr_ratio)/Decimal(buy_amount)*Decimal(100)
 
 def get_hour_in_vntz(dt: datetime):
-    tz=pytz.timezone('Asia/Ho_Chi_Minh')
-    dt=dt.replace(tzinfo=tz)
+    from zoneinfo import ZoneInfo
+    dt=dt.astimezone(ZoneInfo('Asia/Ho_Chi_Minh'))
     return int(dt.strftime('%H'))
+
+def determine_epoch(epoch_time_hour):
+    return round(Decimal(get_hour_in_vntz(datetime.now())) / Decimal(epoch_time_hour))

@@ -256,17 +256,17 @@ if __name__=="__main__":
     )
 
     pair = Pair(
-        address="0xd790f0d1b7a66c013efa55223ced75be7171fdb2",
-        token="0x68c977d03a883f691f08b7d67601f6b093a717b7",
+        address="0x84d1d926327e533a2e8537bb196d86ab61395672",
+        token="0x8d4abf8b19bc1f9daa42bbb44c6fcecf8449c46f",
         token_index=0,
-        creator="0xc99fcb373891656b17648bdf371b9bdf4f2ed5fc",
+        creator="0xb34e339ec309d3f15905ce7e95ca00385ae421bc",
         reserve_eth=10,
         reserve_token=0,
         created_at=0,
         inspect_attempts=1,
         contract_verified=False,
         number_tx_mm=0,
-        last_inspected_block=41846389, # is the created_block as well
+        last_inspected_block=41836488, # is the created_block as well
     )
 
     #print("contract verified") if inspector.is_contract_verified(pair) else print(f"contract unverified")
@@ -274,4 +274,4 @@ if __name__=="__main__":
     #print(f"number mm_tx {inspector.number_tx_mm(pair, 41665828, 41665884)}")
     #print(f"is malicious {inspector.is_malicious(pair, 41665828, is_initial=True)}")
 
-    inspector.inspect_batch([pair], 41846757, is_initial=False)
+    inspector.inspect_batch([pair], 41836682, is_initial=False)

@@ -104,7 +104,7 @@ class PairInspector(metaclass=Singleton):
         txlist = self.get_txlist(pair.token, from_block, to_block)
         
         if int(txlist['status'])==constants.TX_SUCCESS_STATUS and len(txlist['result'])>0:
-            txs = [tx for tx in txlist['result'] if int(tx['txreceipt_status'])==constants.TX_SUCCESS_STATUS and tx['to'].lower()==pair.token.lower() and tx['methodId'] not in [constants.APPROVE_METHOD_ID]]
+            txs = [tx for tx in txlist['result'] if int(tx['txreceipt_status'])==constants.TX_SUCCESS_STATUS and tx['to'].lower()==pair.token.lower() and tx['from'].lower()==pair.creator.lower()]
             if len(txs)>0:
                 logging.warning(f"INSPECTOR Pair {pair.address} detected malicious due to abnormal incoming txs {txs}")
             return len(txs)
@@ -166,7 +166,7 @@ class PairInspector(metaclass=Singleton):
     
     @timer_decorator
     def inspect_pair(self, pair: Pair, block_number, is_initial=False) -> InspectionResult:
-        from_block=pair.last_inspected_block if pair.last_inspected_block>0 else block_number
+        from_block=pair.last_inspected_block+1 if pair.last_inspected_block>0 else block_number
 
         result = InspectionResult(
             pair=pair,
@@ -246,10 +246,8 @@ if __name__=="__main__":
         http_url=os.environ.get('HTTPS_URL'),
         api_keys=os.environ.get('BASESCAN_API_KEYS'),
         etherscan_api_url=os.environ.get('ETHERSCAN_API_URL'),
-        #signer=Web3.to_checksum_address(os.environ.get('MANAGER_ADDRESS')),
-        #bot=Web3.to_checksum_address(os.environ.get('INSPECTOR_BOT')),
-        signer='0xecb137C67c93eA50b8C259F8A8D08c0df18222d9',
-        bot='0x95f1062CCBF3A4909E1007457231130cdB4DB4c8',
+        signer=Web3.to_checksum_address(os.environ.get('MANAGER_ADDRESS')),
+        bot=Web3.to_checksum_address(os.environ.get('INSPECTOR_BOT')),
         router=Web3.to_checksum_address(os.environ.get('ROUTER_ADDRESS')),
         weth=Web3.to_checksum_address(os.environ.get('WETH_ADDRESS')),
         pair_abi=PAIR_ABI,
@@ -258,17 +256,17 @@ if __name__=="__main__":
     )
 
     pair = Pair(
-        address="0x40f7086e93d5974795a6fa1c4d1de69e704e8751",
-        token="0x0a8832872959078cadf563c6f0bc97673a6f3002",
+        address="0xd790f0d1b7a66c013efa55223ced75be7171fdb2",
+        token="0x68c977d03a883f691f08b7d67601f6b093a717b7",
         token_index=0,
-        creator="0xd5027082ece830c56d07ec9d3d84b580d2d8f59d",
+        creator="0xc99fcb373891656b17648bdf371b9bdf4f2ed5fc",
         reserve_eth=10,
         reserve_token=0,
         created_at=0,
         inspect_attempts=1,
         contract_verified=False,
         number_tx_mm=0,
-        last_inspected_block=41689857, # is the created_block as well
+        last_inspected_block=41846389, # is the created_block as well
     )
 
     #print("contract verified") if inspector.is_contract_verified(pair) else print(f"contract unverified")
@@ -276,4 +274,4 @@ if __name__=="__main__":
     #print(f"number mm_tx {inspector.number_tx_mm(pair, 41665828, 41665884)}")
     #print(f"is malicious {inspector.is_malicious(pair, 41665828, is_initial=True)}")
 
-    inspector.inspect_batch([pair], 41690011, is_initial=False)
+    inspector.inspect_batch([pair], 41846757, is_initial=False)

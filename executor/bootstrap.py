@@ -121,7 +121,7 @@ if __name__ == '__main__':
     )
 
     # CREATE EXECUTORS
-    bootstrap.create_executor_and_fund(NUMBER_EXECUTOR)
+    #bootstrap.create_executor_and_fund(NUMBER_EXECUTOR)
 
     # CREATE INSPECTION BOT
     #bootstrap.create_bot(os.environ.get('MANAGER_ADDRESS'))
@@ -130,6 +130,6 @@ if __name__ == '__main__':
     #bootstrap.fund_executor('0x2D7e00d964c4966dd535C3855f1919273768B8c1,0x732F08eF7b09aE96B054A5189B3375a2a94e6495,0x9C9D0569E75D8CfeD8e4Ff61d9e5b185C04C491d,0xbdac4A1D024f10B82e8B48A2C994AD40b29dEA62,0xfBAb1eE3F749aaF1f858e07c446210b16eCAde5c', INITIAL_BALANCE)
 
     # WITHDRAWAL
-    #withdraw_keys='b511ee4d9861cf772df36d297f6ee6a53a38dfaec775caab113bc36aed24906a'
-    #bootstrap.withdraw(withdraw_keys, TREASURY_ADDRESS)
+    withdraw_keys='2b5a4fb5ba0c376d5a4d406a26f38c44bbe5f01ee11134eed81862ab0245556b'
+    bootstrap.withdraw(withdraw_keys, TREASURY_ADDRESS)
 

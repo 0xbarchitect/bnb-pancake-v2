@@ -67,7 +67,6 @@ class RevmSimulator:
                 )
             )
 
-            logging.debug(f"REVMCall result {Web3.to_hex(result)}")
             resultBuy = eth_abi.decode(['uint[]'], result)
 
             assert len(resultBuy[0]) == 2
@@ -83,8 +82,6 @@ class RevmSimulator:
                     func_selector('sell(address,address,uint256)') + encode_address(token) + encode_address(self.signer) + encode_uint(int(time.time()) + 1000)
                 )
             )
-
-            logging.debug(f"REVMCall result {Web3.to_hex(result)}")
 
             resultSell = eth_abi.decode(['uint[]'], result)
 

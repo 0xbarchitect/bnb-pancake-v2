@@ -16,8 +16,8 @@ from library import Singleton
 from helpers import constants, load_abi
 from factory import BotFactory
 
-NUMBER_EXECUTOR=1
-INITIAL_BALANCE=0.01
+NUMBER_EXECUTOR=2
+INITIAL_BALANCE=0.005
 GAS_PRICE_GWEI=1
 TRANSFER_GAS_LIMIT=21000
 TREASURY_ADDRESS="0xA0e4075e79aE82E1071B1636b8b9129877D94BfD"
@@ -121,7 +121,7 @@ if __name__ == '__main__':
     )
 
     # CREATE EXECUTORS
-    #bootstrap.create_executor_and_fund(NUMBER_EXECUTOR)
+    bootstrap.create_executor_and_fund(NUMBER_EXECUTOR)
 
     # CREATE INSPECTION BOT
     #bootstrap.create_bot(os.environ.get('MANAGER_ADDRESS'))
@@ -130,6 +130,6 @@ if __name__ == '__main__':
     #bootstrap.fund_executor('0x2D7e00d964c4966dd535C3855f1919273768B8c1,0x732F08eF7b09aE96B054A5189B3375a2a94e6495,0x9C9D0569E75D8CfeD8e4Ff61d9e5b185C04C491d,0xbdac4A1D024f10B82e8B48A2C994AD40b29dEA62,0xfBAb1eE3F749aaF1f858e07c446210b16eCAde5c', INITIAL_BALANCE)
 
     # WITHDRAWAL
-    withdraw_keys='661e79257286e04d6232762e2e5e4767e3e01b7495e3bf5afd957031654605ae'
-    bootstrap.withdraw(withdraw_keys, TREASURY_ADDRESS)
+    #withdraw_keys='661e79257286e04d6232762e2e5e4767e3e01b7495e3bf5afd957031654605ae'
+    #bootstrap.withdraw(withdraw_keys, TREASURY_ADDRESS)
 

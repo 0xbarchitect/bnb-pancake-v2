@@ -4,12 +4,13 @@ import logging
 from datetime import datetime
 from decimal import Decimal
 from time import time
+from asgiref.sync import sync_to_async
 
 import sys # for testing
 sys.path.append('..')
 
 from library import Singleton
-from data import ReportData, ReportDataType, BlockData, Pair, ExecutionAck
+from data import ReportData, ReportDataType, BlockData, Pair, ExecutionAck, ControlOrder, ControlOrderType
 from helpers import constants
 
 import django
@@ -30,7 +31,42 @@ class Reporter(metaclass=Singleton):
         self.sender = sender
 
     async def run(self):
-        await self.listen_report()
+        await asyncio.gather(
+            self.bootstrap(),
+            self.listen_report(),
+        )
+
+    async def bootstrap(self):
+        @sync_to_async
+        def get_pending_positions():
+            # fetch all pending positions
+            pending_positions = []
+            for pos in console.models.Position.objects.filter(is_liquidated=0, is_deleted=0).filter(purchased_at__gte=make_aware(datetime.now()-timedelta(hours=1))).all():
+                pending_positions.append(Position(
+                    pair=Pair(
+                        address=pos.pair.address,
+                        token=pos.pair.token,
+                        token_index=pos.pair.token_index,
+                        reserve_token=pos.pair.reserve_token,
+                        reserve_eth=pos.pair.reserve_eth,
+                        creator=pos.pair.creator,                        
+                    ),
+                    amount=pos.amount,
+                    amount_in=pos.investment,
+                    signer=pos.signer,
+                    bot=pos.bot,
+                    start_time=int(round(pos.purchased_at.timestamp()-10*60)), # TODO: shift start-time backward to force liquidate immediately
+                    buy_price=pos.buy_price,
+                ))
+            return pending_positions
+
+        pending_positions=await get_pending_positions()
+        if len(pending_positions)>0:
+            logging.warning(f"REPORTER Bootstrap pending positions with length {len(pending_positions)}")
+            self.sender.put(ControlOrder(
+                type=ControlOrderType.PENDING_POSITIONS,
+                data=pending_positions,
+            ))
 
     async def listen_report(self):
         logging.info(f"REPORTER listen for report...")
@@ -171,9 +207,9 @@ class Reporter(metaclass=Singleton):
                     investment=Decimal(execution_ack.amount_in),
                 )
                 await position.asave()
-                logging.info(f"REPORTER Create new Position #{position.id}")
+                logging.warning(f"REPORTER Create new Position #{position.id}")
             else:
-                logging.info(f"REPORTER Update existing Position #{position.id}")
+                logging.warning(f"REPORTER Update existing Position #{position.id}")
 
                 if not execution_ack.is_buy and position.is_liquidated != 1:
                     position.is_liquidated=1
@@ -210,9 +246,9 @@ class Reporter(metaclass=Singleton):
                         frozen_at=make_aware(datetime.now()),
                         )
                     await blacklist.asave()
-                    logging.info(f"REPORTER create blacklist id #{blacklist.id} with address {addr} at {datetime.now()}")
+                    logging.warning(f"REPORTER create blacklist id #{blacklist.id} with address {addr} at {datetime.now()}")
                 else:
-                    logging.info(f"REPORTER blacklist {addr} exists, update frozen time {datetime.now()}")
+                    logging.warning(f"REPORTER blacklist {addr} exists, update frozen time {datetime.now()}")
                     blacklist.frozen_at=make_aware(datetime.now())
                     await blacklist.asave()
 

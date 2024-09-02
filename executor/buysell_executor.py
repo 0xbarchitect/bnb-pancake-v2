@@ -85,7 +85,7 @@ class BuySellExecutor(BaseExecutor):
             bot = self.w3.eth.contract(address=Web3.to_checksum_address(bot),abi=self.bot_abi)
 
         try:
-            logging.info(f"EXECUTOR Signer {signer} AmountIn {amount_in} AmountOutMin {amount_out_min} Deadline {deadline} IsBuy {is_buy}")
+            logging.warning(f"EXECUTOR Signer {signer} AmountIn {amount_in} AmountOutMin {amount_out_min} Deadline {deadline} IsBuy {is_buy}")
 
             # get nonce onchain
             nonce = self.w3.eth.get_transaction_count(signer)
@@ -131,7 +131,7 @@ class BuySellExecutor(BaseExecutor):
                 bot=bot.address,
             )
 
-            logging.info(f"EXECUTOR Acknowledgement {ack}")
+            logging.warning(f"EXECUTOR Acknowledgement {ack}")
             self.report_sender.put(ack)
 
         except Exception as e:
@@ -149,7 +149,7 @@ class BuySellExecutor(BaseExecutor):
                 bot=bot.address,
             )
 
-            logging.info(f"EXECUTOR failed execution ack {ack}")
+            logging.warning(f"EXECUTOR failed execution ack {ack}")
             self.report_sender.put(ack)
 
         # update bot status
@@ -177,7 +177,7 @@ class BuySellExecutor(BaseExecutor):
                 logging.debug(f"EXECUTOR bot created {result}")
                 for idx,acct in enumerate(self.accounts):
                     if (acct.bot is None or acct.bot.number_used >= BOT_MAX_NUMBER_USED or acct.bot.is_failed) and acct.w3_account.address.lower()==result.owner.lower():
-                        logging.info(f"EXECUTOR created bot {result} for account #{idx} {acct.w3_account.address}")
+                        logging.warning(f"EXECUTOR created bot {result} for account #{idx} {acct.w3_account.address}")
                         acct.bot = result
 
     async def handle_execution_order(self):
@@ -193,7 +193,7 @@ class BuySellExecutor(BaseExecutor):
                 with glb_lock:
                     counter += 1
 
-                logging.info(f"EXECUTOR receive order #{counter} {execution_data}")
+                logging.warning(f"EXECUTOR receive order #{counter} {execution_data}")
                 deadline = execution_data.block_timestamp + self.deadline_delay if execution_data.block_timestamp > 0 else self.get_block_timestamp() + self.deadline_delay
                 
                 if execution_data.signer is None:
@@ -283,35 +283,35 @@ if __name__ == "__main__":
         await asyncio.sleep(1) # waiting for bot is fully initialized
 
         # BUY
-        order_receiver.put(ExecutionOrder(
-            block_number=0, 
-            block_timestamp=0, 
-            pair=Pair(
-                address='0x0bCF9064a4363ac60350042c8390aeb034d2B6d6',
-                token='0xd67ac67ff99153a76ec881bfd8be006789e32b4e',
-                token_index=1,
-            ),
-            signer='0xecb137C67c93eA50b8C259F8A8D08c0df18222d9',
-            bot='0x95f1062CCBF3A4909E1007457231130cdB4DB4c8',
-            amount_in=0.001,
-            amount_out_min=0,
-            is_buy=True))
-        
-        # SELL
         # order_receiver.put(ExecutionOrder(
-        #     block_number=0,
-        #     block_timestamp=0,
+        #     block_number=0, 
+        #     block_timestamp=0, 
         #     pair=Pair(
-        #         address='0x1928d48674412734f9dc2d6d1d0e0f3bbb6c1092',
-        #         token='0x4d20617631d5d778918efb34ff7518df40b36a18',
-        #         token_index=0,
+        #         address='0x0bCF9064a4363ac60350042c8390aeb034d2B6d6',
+        #         token='0xd67ac67ff99153a76ec881bfd8be006789e32b4e',
+        #         token_index=1,
         #     ),
         #     signer='0xecb137C67c93eA50b8C259F8A8D08c0df18222d9',
         #     bot='0x95f1062CCBF3A4909E1007457231130cdB4DB4c8',
-        #     amount_in=0,
+        #     amount_in=0.001,
         #     amount_out_min=0,
-        #     is_buy=False,
-        #     ))
+        #     is_buy=True))
+        
+        # SELL
+        order_receiver.put(ExecutionOrder(
+            block_number=0,
+            block_timestamp=0,
+            pair=Pair(
+                address='0xe593c2d220bdbd4fec92a731476aae8d3dc9753c',
+                token='0x56fa07b6f789512e094c2630a7dbb654dcf60c6f',
+                token_index=0,
+            ),
+            signer='0x702bfad5c5dfabdfcb803081a0d2bfacb37f810d',
+            bot='0xde29fb89182f7a4c709540fef025f5be4b8dd988',
+            amount_in=0,
+            amount_out_min=0,
+            is_buy=False,
+            ))
 
     async def main_loop():
         await asyncio.gather(executor.run(), simulate_order())

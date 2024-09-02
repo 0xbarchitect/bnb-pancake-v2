@@ -224,14 +224,14 @@ class BlockWatcher(metaclass=Singleton):
 
             with glb_lock:
                 self.inventory.append(pair)
-            logging.info(f"WATCHER add pair {pair.address} to inventory length {len(self.inventory)}")
+            logging.warning(f"WATCHER add pair {pair.address} to inventory length {len(self.inventory)}")
 
         def remove_pair_from_inventory(pair):
             for idx,pr in enumerate(self.inventory):
                 if pr.address == pair.address:
                     with glb_lock:
                         self.inventory.pop(idx)
-                        logging.info(f"WATCHER remove pair {pair.address} from inventory length {len(self.inventory)}")
+                        logging.warning(f"WATCHER remove pair {pair.address} from inventory length {len(self.inventory)}")
 
         while True:
             report = await self.report_broker.coro_get()

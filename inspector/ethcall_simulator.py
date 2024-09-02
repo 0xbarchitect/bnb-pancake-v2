@@ -50,37 +50,6 @@ class EthCallSimulator:
         try:
             balance_index = calculate_balance_storage_index(self.signer,0)
             allowance_index = calculate_allowance_storage_index(self.signer, self.bot.address,1)
-            
-            # result = self.w3.eth.call({
-            #     'from': self.signer,
-            #     'to': token,
-            #     'data': bytes.fromhex(
-            #         func_selector('transfer(address,uint256)') + encode_address(self.bot.address) + encode_uint(amount)
-            #     )
-            # }, 'latest', {
-            #     token: {
-            #         'stateDiff': {
-            #             balance_index.hex(): hex(amount),
-            #         }
-            #     }
-            # })
-            # logging.info(f"transfer result {Web3.to_int(result)}")
-
-            # result = self.w3.eth.call({
-            #     'from': self.signer,
-            #     'to': token,
-            #     'data': bytes.fromhex(
-            #         func_selector('allowance(address,address)') + encode_address(self.signer) + encode_address(self.bot.address)
-            #     )
-            # }, 'latest', {
-            #     token: {
-            #         'stateDiff': {
-            #             balance_index.hex(): hex(amount),
-            #             allowance_index.hex(): hex(amount),
-            #         }
-            #     }
-            # })
-            # logging.info(f"allowance result {Web3.to_int(result)}")
 
             result = self.w3.eth.call({
                 'from': self.signer,

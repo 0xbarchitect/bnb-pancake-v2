@@ -72,7 +72,7 @@ class BotFactory(metaclass=Singleton):
             
             if tx_receipt['status'] == constants.TX_SUCCESS_STATUS:
                 bot_created_logs = self.bot_factory.events.BotCreated().process_receipt(tx_receipt)
-                logging.info(f"FACTORY successfully create bot with owner {owner} at {bot_created_logs[0]['args']['bot']}")
+                logging.warning(f"FACTORY successfully create bot with owner {owner} at {bot_created_logs[0]['args']['bot']}")
 
                 return Bot(
                     address=bot_created_logs[0]['args']['bot'],
@@ -92,7 +92,7 @@ class BotFactory(metaclass=Singleton):
             # query from DB
             bot = await console.models.Bot.objects.filter(owner=order.owner.lower()).filter(number_used__lt=BOT_MAX_NUMBER_USED).filter(is_failed=False).afirst()
             if bot is not None:
-                logging.info(f"FACTORY found available bot #{bot.id} from DB")
+                logging.warning(f"FACTORY found available bot #{bot.id} from DB")
 
                 # send result via broker
                 self.result_broker.put(Bot(
@@ -114,7 +114,7 @@ class BotFactory(metaclass=Singleton):
                         is_failed=False,
                     )
                     await obj.asave()
-                    logging.info(f"FACTORY save bot to DB #{obj.id}")
+                    logging.warning(f"FACTORY save bot to DB #{obj.id}")
 
                     # send result via broker
                     self.result_broker.put(bot)
@@ -138,7 +138,7 @@ class BotFactory(metaclass=Singleton):
                     if order.execution_ack.tx_status != constants.TX_SUCCESS_STATUS:
                         bot.is_failed=True
                     await bot.asave()
-                logging.info(f"FACTORY updated status for bot {bot}")
+                logging.warning(f"FACTORY updated status for bot {bot}")
             else:
                 logging.warning(f"FACTORY not found bot {bot} to update")
         except Exception as e:

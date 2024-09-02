@@ -1,7 +1,7 @@
 import asyncio
 import os
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 from time import time
 from asgiref.sync import sync_to_async
@@ -69,10 +69,10 @@ class Reporter(metaclass=Singleton):
             ))
 
     async def listen_report(self):
-        logging.info(f"REPORTER listen for report...")
+        logging.warning(f"REPORTER listen for report...")
         while True:
             report = await self.receiver.coro_get()
-            logging.info(f"REPORTER receive {report}")
+            logging.warning(f"REPORTER receive {report}")
 
             await self.save_to_db(report)
 

@@ -51,7 +51,7 @@ class BlockWatcher(metaclass=Singleton):
                 w3Async.middleware_onion.inject(async_geth_poa_middleware, layer=0)
 
             try:
-                logging.info(f"WATCHER websocket connected...")
+                logging.warning(f"WATCHER websocket connected...")
 
                 subscription_id = await w3Async.eth.subscribe("newHeads")
                 async for response in w3Async.ws.process_subscriptions():

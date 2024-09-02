@@ -22,7 +22,7 @@ from helpers.utils import load_contract_bin, encode_address, encode_uint, func_s
                             calculate_allowance_storage_index
 from helpers import constants
 from data import Pair, MaliciousPair, InspectionResult, SimulationResult
-from inspector import RevmSimulator
+from inspector import RevmSimulator, EthCallSimulator
 
 # django
 import django
@@ -38,7 +38,7 @@ CREATOR_TX_HISTORY_PAGE_SIZE=500
 
 SIMULATION_AMOUNT=0.01
 SLIPPAGE_MIN_THRESHOLD = 30 # in basis points
-SLIPPAGE_MAX_THRESHOLD = 100 # in basis points
+SLIPPAGE_MAX_THRESHOLD = 300 # in basis points
 
 RESERVE_ETH_MIN_THRESHOLD=float(os.environ.get('RESERVE_ETH_MIN_THRESHOLD'))
 RESERVE_ETH_MAX_THRESHOLD=float(os.environ.get('RESERVE_ETH_MAX_THRESHOLD'))
@@ -79,6 +79,12 @@ class PairInspector(metaclass=Singleton):
         self.weth_abi = weth_abi
         self.bot_abi = bot_abi
         self.counter = 0
+
+        self.simulator = EthCallSimulator(
+            http_url=http_url,
+            signer=signer,
+            bot=bot,
+        )
 
     @timer_decorator
     def is_contract_verified(self, pair: Pair) -> False:
@@ -196,18 +202,18 @@ class PairInspector(metaclass=Singleton):
         
             result.number_tx_mm=self.number_tx_mm(pair,from_block,block_number)
 
-        simulator = RevmSimulator(
-            http_url=self.http_url,
-            signer=self.signer,
-            router_address=self.router,
-            weth=self.weth,
-            bot=self.bot,
-            pair_abi=self.pair_abi,
-            weth_abi=self.weth_abi,
-            bot_abi=self.bot_abi,
-        )
+        # simulator = RevmSimulator(
+        #     http_url=self.http_url,
+        #     signer=self.signer,
+        #     router_address=self.router,
+        #     weth=self.weth,
+        #     bot=self.bot,
+        #     pair_abi=self.pair_abi,
+        #     weth_abi=self.weth_abi,
+        #     bot_abi=self.bot_abi,
+        # )
 
-        simulation_result = simulator.inspect_pair(pair, SIMULATION_AMOUNT)
+        simulation_result = self.simulator.inspect_pair(pair, SIMULATION_AMOUNT)
         if simulation_result is not None:
             if simulation_result.slippage > SLIPPAGE_MIN_THRESHOLD and simulation_result.slippage < SLIPPAGE_MAX_THRESHOLD:
                 result.simulation_result=simulation_result
@@ -226,7 +232,7 @@ class PairInspector(metaclass=Singleton):
                 pair = future_to_pair[future]
                 try:
                     result = future.result()
-                    logging.info(f"INSPECTOR inspect pair {pair} {result}")
+                    logging.warning(f"INSPECTOR inspect pair {pair} {result}")
                     results.append(result)
                 except Exception as e:
                     logging.error(f"INSPECTOR inspect pair {pair} error {e}")
@@ -256,17 +262,17 @@ if __name__=="__main__":
     )
 
     pair = Pair(
-        address="0x84d1d926327e533a2e8537bb196d86ab61395672",
-        token="0x8d4abf8b19bc1f9daa42bbb44c6fcecf8449c46f",
+        address="0xc88d54d03e8b623ea5849ab5a009a629aa4d42d8",
+        token="0x1a8a97f537f96a6675c1deb1a8d1afbd32bd0639",
         token_index=0,
-        creator="0xb34e339ec309d3f15905ce7e95ca00385ae421bc",
+        creator="0xe610ab3156861e9c7b70666aad09c7af4d52cb2e",
         reserve_eth=10,
         reserve_token=0,
         created_at=0,
         inspect_attempts=1,
         contract_verified=False,
         number_tx_mm=0,
-        last_inspected_block=41836488, # is the created_block as well
+        last_inspected_block=0, # is the created_block as well
     )
 
     #print("contract verified") if inspector.is_contract_verified(pair) else print(f"contract unverified")
@@ -274,4 +280,4 @@ if __name__=="__main__":
     #print(f"number mm_tx {inspector.number_tx_mm(pair, 41665828, 41665884)}")
     #print(f"is malicious {inspector.is_malicious(pair, 41665828, is_initial=True)}")
 
-    inspector.inspect_batch([pair], 41836682, is_initial=False)
+    inspector.inspect_batch([pair], 41898630, is_initial=True)

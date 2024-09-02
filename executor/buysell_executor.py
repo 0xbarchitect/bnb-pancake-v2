@@ -183,7 +183,7 @@ class BuySellExecutor(BaseExecutor):
     async def handle_execution_order(self):
         global glb_lock
 
-        logging.info(f"EXECUTOR listen for order...")
+        logging.warning(f"EXECUTOR listen for order...")
         executor = ThreadPoolExecutor(max_workers=len(self.accounts))
         counter = 0
         while True:

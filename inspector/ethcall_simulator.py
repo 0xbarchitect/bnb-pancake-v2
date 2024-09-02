@@ -22,28 +22,16 @@ from data import SimulationResult, Pair
 
 class EthCallSimulator:
     @timer_decorator
-    def __init__(self, 
-                 http_url, 
-                 signer, 
-                 router_address, 
-                 weth,
+    def __init__(self,
+                 http_url,
+                 signer,
                  bot,
-                 pair_abi,
-                 weth_abi,
-                 bot_abi,
                  ):
         logging.debug(f"start simulation...")
 
-        self.http_url = http_url
-        self.signer = signer
-
-        self.router_address = router_address
-        self.weth = weth
-
         self.w3 = Web3(Web3.HTTPProvider(http_url))
-        self.pair_abi = pair_abi
-        self.weth_contract = self.w3.eth.contract(address=weth, abi=weth_abi)
-        self.bot = self.w3.eth.contract(address=bot, abi=bot_abi)
+        self.signer = signer
+        self.bot = bot
 
     @timer_decorator
     def inspect_token_by_transfer(self, token, amount):
@@ -80,49 +68,26 @@ class EthCallSimulator:
     def inspect_token_by_swap(self, token, amount):
         try:
             # buy
-            result = self.w3.eth.call({
-                'from': self.signer,
-                'to': self.bot.address,
-                'value': Web3.to_wei(amount, 'ether'),
-                'data': bytes.fromhex(
-                    func_selector('buy(address,uint256)') + encode_address(token) + encode_uint(int(time.time()) + 1000)
-                )
-            }, 'latest', {
-                self.signer: {
-                    'balance': hex(10**18)
-                }
-            })
+            resultBuy = self.buy(token, amount)
+            logging.debug(f"SIMULATOR Buy result {resultBuy}")
 
-            resultBuy = eth_abi.decode(['uint[]'], result)
+            if resultBuy is None:
+                return None
 
             assert len(resultBuy[0]) == 2
             assert resultBuy[0][0] == Web3.to_wei(amount, 'ether')
 
-            logging.info(f"SIMULATOR buy result {resultBuy}")
+            
 
             # sell
-            storage_index = calculate_balance_storage_index(self.bot.address, 0)
+            resultSell = self.sell(token, Web3.from_wei(resultBuy[0][1], 'ether'))
+            logging.debug(f"SIMULATOR Sell result {resultSell}")
 
-            result = self.w3.eth.call({
-                'from': self.signer,
-                'to': self.bot.address,
-                'data': bytes.fromhex(
-                    func_selector('sell(address,address,uint256)') + encode_address(token) + encode_address(self.signer) + encode_uint(int(time.time()) + 1000)
-                )
-            }, 'latest', {
-                token: {
-                    'stateDiff': {
-                        storage_index.hex(): hex(resultBuy[0][1]),
-                    }
-                }
-            })
-
-            resultSell = eth_abi.decode(['uint[]'], result)
+            if resultSell is None:
+                return None
 
             assert len(resultSell[0]) == 2
             assert resultSell[0][0] == resultBuy[0][1]
-
-            logging.info(f"SIMULATOR sell result {resultSell}")
 
             amount_out = Web3.from_wei(resultSell[0][1], 'ether')
             slippage = (Decimal(amount) - Decimal(amount_out))/Decimal(amount)*Decimal(10000)
@@ -132,6 +97,88 @@ class EthCallSimulator:
         except Exception as e:
             logging.error(f"SIMULATOR inspect {token} failed with error {e}")
             return None
+        
+    def buy(self, token, amount, signer=None, bot=None) -> None:
+        try:
+            signer = self.signer if signer is None else signer
+            bot = self.bot if bot is None else bot
+            token = Web3.to_checksum_address(token)
+
+            state_diff = {
+                signer: {
+                    'balance': hex(10**18) # 1 ETH
+                }
+            }
+            
+            result = self.w3.eth.call({
+                'from': signer,
+                'to': bot,
+                'value': Web3.to_wei(amount, 'ether'),
+                'data': bytes.fromhex(
+                    func_selector('buy(address,uint256)') + encode_address(token) + encode_uint(int(time.time()) + 1000)
+                )
+            }, 'latest', state_diff)
+
+            resultBuy = eth_abi.decode(['uint[]'], result)
+            return resultBuy
+        except Exception as e:
+            logging.error(f"SIMULATOR Buy error {e}")
+
+    def sell(self, token, amount, signer=None, bot=None) -> None:
+        try:
+            signer = self.signer if signer is None else signer
+            bot = self.bot if bot is None else bot
+
+            balance_slot_index = self.determine_balance_slot_index(token)
+            logging.debug(f"SIMULATOR Balance slot index {balance_slot_index}")
+
+            if balance_slot_index is not None:
+                storage_index = calculate_balance_storage_index(bot, balance_slot_index)
+                logging.debug(f"SIMULATOR Storage index {storage_index.hex()}")
+
+                result = self.w3.eth.call({
+                    'from': signer,
+                    'to': bot,
+                    'data': bytes.fromhex(
+                        func_selector('sell(address,address,uint256)') + encode_address(token) + encode_address(signer) + encode_uint(int(time.time()) + 1000)
+                    )
+                }, 'latest', self.create_state_diff(token, storage_index, Web3.to_wei(amount, 'ether')))
+
+                resultSell = eth_abi.decode(['uint[]'], result)
+                return resultSell
+        except Exception as e:
+            logging.error(f"SIMULATOR Sell error {e}")
+
+    def determine_balance_slot_index(self, token):
+        fake_amount = 10**27 # 1B
+        fake_owner = self.signer
+
+        for idx in range(9):
+            storage_index = calculate_balance_storage_index(fake_owner, idx)
+
+            result = self.w3.eth.call({
+                'from': self.signer,
+                'to': Web3.to_checksum_address(token),
+                'data': bytes.fromhex(
+                    func_selector('balanceOf(address)') + encode_address(fake_owner)
+                )
+            }, 'latest', self.create_state_diff(token, storage_index, fake_amount))
+            logging.debug(f"index {idx} get balance result fake {eth_abi.decode(['uint256'], result)}")
+
+            decoded = eth_abi.decode(['uint256'], result)
+            if decoded[0] == fake_amount:
+                return idx
+
+        return None
+
+    def create_state_diff(self, token, storage_index, amount):
+        return {
+                Web3.to_checksum_address(token): {
+                    'stateDiff': {
+                        storage_index.hex(): '0x'+hex(amount)[2:].zfill(64),
+                    }
+                }
+            }
         
     def inspect_pair(self, pair: Pair, amount, swap=True) -> None:
         if swap is False:
@@ -163,21 +210,16 @@ if __name__ == '__main__':
 
     simulator = EthCallSimulator(
                     http_url=os.environ.get('HTTPS_URL'),
-                    signer=Web3.to_checksum_address(os.environ.get('MANAGER_ADDRESS')),
-                    router_address=Web3.to_checksum_address(os.environ.get('ROUTER_ADDRESS')),
-                    weth=Web3.to_checksum_address(os.environ.get('WETH_ADDRESS')),
+                    signer=Web3.to_checksum_address(os.environ.get('MANAGER_ADDRESS')),                    
                     bot=Web3.to_checksum_address(os.environ.get('INSPECTOR_BOT')),
-                    pair_abi=PAIR_ABI,
-                    weth_abi=WETH_ABI,
-                    bot_abi=BOT_ABI,
                     )
     
     result=simulator.inspect_pair(Pair(
-        address='0xb6d3fdd13445873522e5f64e06794dfdd19e083f',
-        token='0xc44644e2ed33e7402199aed8b9e7e889c15cc98d',
-        token_index=1,
+        address='0xc88d54d03e8b623ea5849ab5a009a629aa4d42d8',
+        token='0x1a8a97f537f96a6675c1deb1a8d1afbd32bd0639',
+        token_index=0,
         reserve_token=0,
         reserve_eth=0
-    ), 0.1, swap=True)
+    ), 0.01, swap=True)
 
     logging.info(f"Simulation result {result}")

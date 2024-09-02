@@ -265,12 +265,12 @@ async def strategy(watching_broker, execution_broker, report_broker, watching_no
 
                                 glb_watchlist.append(pair)
 
-                            logging.info(f"MAIN add pair {pair.address} to watchlist length {len(glb_watchlist)}")
+                            logging.warning(f"MAIN add pair {pair.address} to watchlist length {len(glb_watchlist)}")
                         else:
                             # send order immediately
                             send_exec_order(block_data, result.pair)
             else:
-                logging.info(f"MAIN watchlist is already full capacity")
+                logging.warning(f"MAIN watchlist is already full capacity")
 
 @timer_decorator
 def inspect(pairs, block_number, is_initial=False) -> List[InspectionResult]:

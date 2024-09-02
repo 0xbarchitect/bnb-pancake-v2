@@ -37,7 +37,7 @@ class BotFactory(metaclass=Singleton):
 
         self.w3 = Web3(Web3.HTTPProvider(http_url))
         if self.w3.is_connected() == True:
-            logging.info(f"FACTORY web3 provider {http_url} connected")
+            logging.debug(f"FACTORY web3 provider {http_url} connected")
 
         self.w3.middleware_onion.inject(geth_poa_middleware, layer=0)
 

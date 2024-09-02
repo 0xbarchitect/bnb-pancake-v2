@@ -181,7 +181,7 @@ async def strategy(watching_broker, execution_broker, report_broker, watching_no
                                     bot=position.bot,
                                 ))
         
-        if glb_daily_pnl[1] < HARD_STOP_PNL_THRESHOLD:
+        if glb_daily_pnl[1] < HARD_STOP_PNL_THRESHOLD and glb_auto_run:
             with glb_lock:
                 glb_auto_run = False
                 logging.warning(f"MAIN stop auto run...")

@@ -142,7 +142,7 @@ class FilterLogs:
         return f"FilterLogs type {self.type} data {self.data}"
     
 class Position:
-    def __init__(self, pair, amount, buy_price, start_time, pnl=0, signer=None, bot=None) -> None:
+    def __init__(self, pair: Pair, amount, buy_price, start_time, pnl=0, signer=None, bot=None) -> None:
         self.pair = pair
         self.amount = amount
         self.buy_price = buy_price

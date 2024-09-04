@@ -88,6 +88,15 @@ class PairInspector(metaclass=Singleton):
 
     @timer_decorator
     def is_contract_verified(self, pair: Pair) -> False:
+        def source_code_is_malicious(source):
+            blacklist = ['family','_boot']
+
+            for word in blacklist:
+                if source.find(word) != -1:
+                    return True
+                
+            return False
+        
         if pair.contract_verified:
             return True
         
@@ -98,7 +107,7 @@ class PairInspector(metaclass=Singleton):
 
             if int(res['status'])==1 and len(res['result'][0].get('Library',''))==0:
                 if CONTRACT_VERIFIED_REQUIRED==1:
-                    return True if len(res['result'][0].get('SourceCode',''))>0 and len(res['result'][0].get('ContractName'))>0 else False
+                    return True if len(res['result'][0].get('SourceCode',''))>0 and len(res['result'][0].get('ContractName'))>0 and not source_code_is_malicious(res['result'][0]['SourceCode']) else False
                 return True
         else:
             logging.error(f"INSPECTOR EtherscanAPI GetSourceCode error:: {r.status_code}")
@@ -262,10 +271,10 @@ if __name__=="__main__":
     )
 
     pair = Pair(
-        address="0xc88d54d03e8b623ea5849ab5a009a629aa4d42d8",
-        token="0x1a8a97f537f96a6675c1deb1a8d1afbd32bd0639",
-        token_index=0,
-        creator="0xe610ab3156861e9c7b70666aad09c7af4d52cb2e",
+        address="0xbccf800f03835655dfea14c57953801ff98c54fa",
+        token="0xf3548d55e75ab6c2c64b56a2210fe7611a1f1855",
+        token_index=1,
+        creator="0xc19adbefee8d0510e6ef804edaa7b9c46b5d5b9e",
         reserve_eth=10,
         reserve_token=0,
         created_at=0,
@@ -280,4 +289,4 @@ if __name__=="__main__":
     #print(f"number mm_tx {inspector.number_tx_mm(pair, 41665828, 41665884)}")
     #print(f"is malicious {inspector.is_malicious(pair, 41665828, is_initial=True)}")
 
-    inspector.inspect_batch([pair], 41898630, is_initial=True)
+    inspector.inspect_batch([pair], 41945284, is_initial=True)

@@ -45,7 +45,7 @@ class BlockData:
         """
 
 class ExecutionOrder:
-    def __init__(self, block_number, block_timestamp, pair: Pair, amount_in, amount_out_min, is_buy, signer=None, bot=None) -> None:
+    def __init__(self, block_number, block_timestamp, pair: Pair, amount_in, amount_out_min, is_buy, signer=None, bot=None, is_paper=False) -> None:
         self.block_number = block_number
         self.block_timestamp = block_timestamp
         self.pair = pair
@@ -54,12 +54,13 @@ class ExecutionOrder:
         self.is_buy = is_buy
         self.signer = signer
         self.bot = bot
+        self.is_paper = is_paper
 
     def __str__(self) -> str:
-        return f"ExecutionOrder Block #{self.block_number} Pair {self.pair.address} AmountIn {self.amount_in} AmountOutMin {self.amount_out_min} Signer {self.signer} Bot {self.bot} isBuy {self.is_buy}"
+        return f"ExecutionOrder Block #{self.block_number} Pair {self.pair.address} AmountIn {self.amount_in} AmountOutMin {self.amount_out_min} Signer {self.signer} Bot {self.bot} IsBuy {self.is_buy} IsPaper {self.is_paper}"
     
 class ExecutionAck:
-    def __init__(self, lead_block, block_number, tx_hash, tx_status, pair: Pair, amount_in, amount_out, is_buy, signer=None, bot=None) -> None:
+    def __init__(self, lead_block, block_number, tx_hash, tx_status, pair: Pair, amount_in, amount_out, is_buy, signer=None, bot=None, is_paper=False) -> None:
         self.lead_block = lead_block
         self.block_number = block_number
         self.tx_hash = tx_hash
@@ -70,11 +71,12 @@ class ExecutionAck:
         self.is_buy = is_buy
         self.signer = signer
         self.bot = bot
+        self.is_paper = is_paper
 
     def __str__(self) -> str:
         return f"""
         ExecutionAck lead #{self.lead_block} realized #{self.block_number} Tx {self.tx_hash} STATUS {self.tx_status}
-        Pair {self.pair.address} AmountIn {self.amount_in} AmountOut {self.amount_out} Signer {self.signer} Bot {self.bot} IsBuy {self.is_buy}
+        Pair {self.pair.address} AmountIn {self.amount_in} AmountOut {self.amount_out} Signer {self.signer} Bot {self.bot} IsBuy {self.is_buy} IsPaper {self.is_paper}
         """
 from enum import IntEnum
 

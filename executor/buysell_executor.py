@@ -17,6 +17,7 @@ from helpers import timer_decorator, load_abi, constants
 from executor import BaseExecutor
 from data import ExecutionOrder, Pair, ExecutionAck, TxStatus, BotCreationOrder, Bot, BotUpdateOrder
 from factory import BotFactory
+from inspector import EthCallSimulator
 
 glb_lock = threading.Lock()
 BOT_MAX_NUMBER_USED=int(os.environ.get('BOT_MAX_NUMBER_USED'))
@@ -55,6 +56,13 @@ class BuySellExecutor(BaseExecutor):
     
             for acct in self.accounts:
                 self.bot_order_broker.put(BotCreationOrder(owner=acct.w3_account.address))
+
+        # paper-trade
+        self.simulator = EthCallSimulator(
+            http_url=http_url,
+            signer=Web3.to_checksum_address(os.environ.get('MANAGER_ADDRESS')),
+            bot=Web3.to_checksum_address(os.environ.get('INSPECTOR_BOT')),
+        )
             
 
     @timer_decorator
@@ -169,6 +177,56 @@ class BuySellExecutor(BaseExecutor):
                     self.accounts[idx].bot = None
                     self.bot_factory.order_broker.put(BotCreationOrder(self.accounts[idx].w3_account.address))
 
+    @timer_decorator
+    def execute_paper(self, idx, lead_block, is_buy, pair, amount_in, amount_out_min, deadline, bot=None):
+        signer = self.accounts[idx].w3_account.address
+        if bot is None:
+            bot = self.w3.eth.contract(address=Web3.to_checksum_address(self.accounts[idx].bot.address),abi=self.bot_abi)
+        else:
+            bot = self.w3.eth.contract(address=Web3.to_checksum_address(bot),abi=self.bot_abi)
+
+        if is_buy:
+            result = self.simulator.buy(pair.token, amount_in, signer, bot.address)
+            logging.warning(f"EXECUTOR Paper:: Buy result {result}")
+        else:
+            result = self.simulator.sell(pair.token, amount_in, signer, bot.address)
+            logging.warning(f"EXECUTOR Paper:: Sell result {result}")
+
+        if result is not None:
+            ack = ExecutionAck(
+                lead_block=lead_block,
+                block_number=lead_block,
+                tx_hash='0x',
+                tx_status=TxStatus.SUCCESS,
+                pair=pair,
+                amount_in=amount_in,
+                amount_out=Web3.from_wei(result[0][1], 'ether'),
+                is_buy=is_buy,
+                signer=signer,
+                bot=bot.address,
+                is_paper=True,
+            )
+
+            logging.info(f"EXECUTOR Acknowledgement {ack}")
+            self.report_sender.put(ack)
+        else:
+            ack = ExecutionAck(
+                lead_block=lead_block,
+                block_number=lead_block,
+                tx_hash='0x',
+                tx_status=TxStatus.FAILED,
+                pair=pair,
+                amount_in=amount_in,
+                amount_out=0,
+                is_buy=is_buy,
+                signer=signer,
+                bot=bot.address,
+                is_paper=True,
+            )
+
+            logging.info(f"EXECUTOR failed execution ack {ack}")
+            self.report_sender.put(ack)
+
     async def handle_bot_result(self):
         while True:
             result = await self.bot_result_broker.coro_get()
@@ -200,7 +258,18 @@ class BuySellExecutor(BaseExecutor):
                     idx = (counter - 1) % len(self.accounts)
 
                     if self.accounts[idx].bot is not None:
-                        future = executor.submit(self.execute,
+                        if execution_data.is_paper:
+                            future = executor.submit(self.execute_paper,
+                                                idx,
+                                                execution_data.block_number,
+                                                execution_data.is_buy,
+                                                execution_data.pair,
+                                                execution_data.amount_in,
+                                                execution_data.amount_out_min, 
+                                                deadline,
+                                                )
+                        else:
+                            future = executor.submit(self.execute,
                                                 idx,
                                                 execution_data.block_number,
                                                 execution_data.is_buy,
@@ -218,16 +287,28 @@ class BuySellExecutor(BaseExecutor):
                             id = idx
                             break
                     if idx is not None:
-                        future = executor.submit(self.execute,
-                            idx,
-                            execution_data.block_number,
-                            execution_data.is_buy,
-                            execution_data.pair,
-                            execution_data.amount_in,
-                            execution_data.amount_out_min, 
-                            deadline,
-                            execution_data.bot,
-                        )
+                        if execution_data.is_paper:
+                            future = executor.submit(self.execute_paper,
+                                idx,
+                                execution_data.block_number,
+                                execution_data.is_buy,
+                                execution_data.pair,
+                                execution_data.amount_in,
+                                execution_data.amount_out_min, 
+                                deadline,
+                                execution_data.bot,
+                            )
+                        else:
+                            future = executor.submit(self.execute,
+                                idx,
+                                execution_data.block_number,
+                                execution_data.is_buy,
+                                execution_data.pair,
+                                execution_data.amount_in,
+                                execution_data.amount_out_min, 
+                                deadline,
+                                execution_data.bot,
+                            )
                     else:
                         logging.error(f"EXECUTOR not found signer for order {execution_data}")
             else:

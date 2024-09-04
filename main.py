@@ -108,7 +108,7 @@ async def strategy(watching_broker, execution_broker, report_broker, watching_no
         denominator = Decimal(BUY_AMOUNT)
         return (numerator / denominator) * Decimal(100)
     
-    def send_exec_order(block_data, pair):
+    def send_exec_order(block_data, pair, is_paper=False):
         global glb_fullfilled
 
         if glb_fullfilled < INVENTORY_CAPACITY:
@@ -124,6 +124,7 @@ async def strategy(watching_broker, execution_broker, report_broker, watching_no
                 amount_in=BUY_AMOUNT,
                 amount_out_min=0,
                 is_buy=True,
+                is_paper=is_paper,
             ))
         else:
             logging.warning(f"MAIN inventory capacity {INVENTORY_CAPACITY} is full")
@@ -179,6 +180,7 @@ async def strategy(watching_broker, execution_broker, report_broker, watching_no
                                     is_buy=False,
                                     signer=position.signer,
                                     bot=position.bot,
+                                    is_paper=position.is_paper,
                                 ))
         
         if glb_daily_pnl[1] < HARD_STOP_PNL_THRESHOLD and glb_auto_run:
@@ -233,8 +235,9 @@ async def strategy(watching_broker, execution_broker, report_broker, watching_no
                                     glb_watchlist.pop(idx)
                                 logging.warning(f"MAIN remove pair {pair.address} from watching list at index #{idx} caused by reaching max attempts {MAX_INSPECT_ATTEMPTS}")
 
-                                if RUN_MODE==constants.NORMAL_RUN_MODE and pair.number_tx_mm >= NUMBER_TX_MM_THRESHOLD and pair.contract_verified:
-                                    send_exec_order(block_data, pair)
+                                if pair.number_tx_mm >= NUMBER_TX_MM_THRESHOLD and pair.contract_verified:
+                                    is_paper = True if RUN_MODE==constants.PAPER_TRADE_MODE else False
+                                    send_exec_order(block_data,pair,is_paper)                                    
                                 else:
                                     logging.warning(f"MAIN pair {pair.address} not qualified for execution due to numberTxMM {pair.number_tx_mm} is not sufficient or contract unverified")
 
@@ -367,6 +370,7 @@ async def main():
                                 start_time=int(time()),
                                 signer=report.signer,
                                 bot=report.bot,
+                                is_paper=report.is_paper,
                             ))
                             logging.warning(f"MAIN append {report.pair.address} to inventory length {len(glb_inventory)}")
                     else:

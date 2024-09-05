@@ -205,6 +205,7 @@ class Reporter(metaclass=Singleton):
                     signer=execution_ack.signer.lower() if execution_ack.signer is not None else None,
                     bot=execution_ack.bot.lower() if execution_ack.bot is not None else None,
                     investment=Decimal(execution_ack.amount_in),
+                    is_paper=execution_ack.is_paper,
                 )
                 await position.asave()
                 logging.warning(f"REPORTER Create new Position #{position.id}")

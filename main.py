@@ -469,9 +469,9 @@ async def main():
                         )
 
 def signal_handler(signum, frame):
-  print("Received termination signal. Shutting down...")
-  # Add any cleanup code here
-  sys.exit(0)
+    print("Received termination signal. Shutting down...")
+    # Add any cleanup code here
+    sys.exit(0)
 
 if __name__=="__main__":
     signal.signal(signal.SIGTERM, signal_handler)

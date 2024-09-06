@@ -337,6 +337,7 @@ async def main():
     report_broker = aioprocessing.AioQueue()
     control_receiver = aioprocessing.AioQueue()
 
+    # set process group
     os.setpgid(0, 0)
     
     # EXECUTION process

@@ -18,12 +18,13 @@ sys.path.append('..')
 
 from library import Singleton
 from data import BlockData, Pair, ExecutionAck, FilterLogs, FilterLogsType, ReportData, ReportDataType, TxStatus
-from helpers import async_timer_decorator, load_abi, timer_decorator
+from helpers import async_timer_decorator, load_abi, timer_decorator, create_signed_raw_transaction
 
 ADDRESS_ZERO="0x0000000000000000000000000000000000000000"
 
 glb_lock = threading.Lock()
 glb_middleware_added = False
+glb_mempool_middleware_added = False
 
 class BlockWatcher(metaclass=Singleton):
     def __init__(self, https_url, wss_url, block_broker, report_broker, factory_address, factory_abi, weth_address, pair_abi) -> None:
@@ -55,7 +56,7 @@ class BlockWatcher(metaclass=Singleton):
 
                 subscription_id = await w3Async.eth.subscribe("newHeads")
                 async for response in w3Async.ws.process_subscriptions():
-                    logging.debug(f"new block {response}\n")
+                    logging.debug(f"new block {response}")
                     
                     block_number = response['result']['number']
                     block_timestamp = response['result']['timestamp']
@@ -82,6 +83,42 @@ class BlockWatcher(metaclass=Singleton):
             except websockets.ConnectionClosed:
                 logging.error(f"WATCHER websocket connection closed, reconnect...")
                 continue
+
+    async def listen_mempool(self):
+        global glb_lock
+        global glb_mempool_middleware_added
+
+        async for w3Async in AsyncWeb3.persistent_websocket(WebsocketProviderV2(self.wss_url)):
+            if not glb_mempool_middleware_added:
+                with glb_lock:
+                    glb_mempool_middleware_added=True
+                w3Async.middleware_onion.inject(async_geth_poa_middleware, layer=0)
+
+            try:
+                logging.warning(f"WATCHER websocket-mempool connected...")
+
+                subscription_id = await w3Async.eth.subscribe("newPendingTransactions")
+
+                async for response in w3Async.ws.process_subscriptions():
+                    logging.info(f"new pending tx {Web3.to_hex(response['result'])}")
+                    self.trace_tx(Web3.to_hex(response['result']))
+                    
+            except websockets.ConnectionClosed:
+                logging.error(f"WATCHER websocket connection closed, reconnect...")
+                continue
+
+    def trace_tx(self, tx_hash)->None:
+        try:
+            #result = self.w3.provider.make_request("trace_replayTransaction", [tx_hash,['stateDiff']])
+            #result = self.w3.provider.make_request("trace_replayTransaction", [tx_hash,['trace']])
+            result = self.w3.provider.make_request("eth_getTransactionByHash", [tx_hash])
+
+            if result['result']['blockNumber'] is None:
+                print(f"replay tx result {result}")
+                raw_tx = create_signed_raw_transaction(self.w3, result['result'])
+                print(f"signed raw transaction {raw_tx}")
+        except Exception as e:
+            logging.error(f"WATCHER mempool error {e}")
 
     @timer_decorator
     def get_reserves_and_creator(self, pair_address, block_number):
@@ -250,8 +287,9 @@ class BlockWatcher(metaclass=Singleton):
     
     async def main(self):
         await asyncio.gather(
-            self.listen_block(),
+            #self.listen_block(),
             self.listen_report(),
+            self.listen_mempool(),
         )
 
 if __name__ == "__main__":     

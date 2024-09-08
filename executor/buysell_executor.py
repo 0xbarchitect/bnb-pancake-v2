@@ -13,7 +13,7 @@ from web3.logs import STRICT, IGNORE, DISCARD, WARN
 import sys # for testing
 sys.path.append('..')
 
-from helpers import timer_decorator, load_abi, constants
+from helpers import timer_decorator, load_abi, constants, create_signed_raw_transaction
 from executor import BaseExecutor
 from data import ExecutionOrder, Pair, ExecutionAck, TxStatus, BotCreationOrder, Bot, BotUpdateOrder
 from factory import BotFactory
@@ -105,9 +105,15 @@ class BuySellExecutor(BaseExecutor):
             
             # send raw tx
             signed = self.w3.eth.account.sign_transaction(tx, priv_key)
-            tx_hash = self.w3.eth.send_raw_transaction(signed.rawTransaction)
-            logging.debug(f"created tx hash {Web3.to_hex(tx_hash)}")
+            logging.debug(f"tx {tx} signed tx {signed}")
 
+            signed_raw = create_signed_raw_transaction(self.w3, tx, signed.v, signed.r, signed.s)
+            logging.debug(f"signed raw manual {signed_raw}")
+
+            #tx_hash = self.w3.eth.send_raw_transaction(signed.rawTransaction)
+            tx_hash = self.w3.eth.send_raw_transaction(signed_raw)
+
+            logging.debug(f"created tx hash {Web3.to_hex(tx_hash)}")
             tx_receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash)
 
             logging.debug(f"tx receipt {tx_receipt}")
@@ -368,13 +374,13 @@ if __name__ == "__main__":
         #     block_number=0, 
         #     block_timestamp=0, 
         #     pair=Pair(
-        #         address='0x0bCF9064a4363ac60350042c8390aeb034d2B6d6',
-        #         token='0xd67ac67ff99153a76ec881bfd8be006789e32b4e',
-        #         token_index=1,
+        #         address='0xbb83fd610f50dbd2f7e3006b988b6ddf2a238212',
+        #         token='0x9d931e44a9266a03647af3a2aed4d42ca47f84f2',
+        #         token_index=0,
         #     ),
-        #     signer='0xecb137C67c93eA50b8C259F8A8D08c0df18222d9',
-        #     bot='0x95f1062CCBF3A4909E1007457231130cdB4DB4c8',
-        #     amount_in=0.001,
+        #     signer='0x1248dedec6f5168aa9043779ecb79f1bdb7f642c',
+        #     bot='0x47112324a3e9d48e37907c6a9f6bc5405c6b8d47',
+        #     amount_in=0.0001,
         #     amount_out_min=0,
         #     is_buy=True))
         
@@ -383,12 +389,12 @@ if __name__ == "__main__":
             block_number=0,
             block_timestamp=0,
             pair=Pair(
-                address='0x8ac8d8567af2f30e4a5a28be9457303a718c0f2f',
-                token='0xe9f63f91744f8dc1004771717e2233b44169ec2f',
-                token_index=1,
+                address='0xbb83fd610f50dbd2f7e3006b988b6ddf2a238212',
+                token='0x9d931e44a9266a03647af3a2aed4d42ca47f84f2',
+                token_index=0,
             ),
             signer='0x1248dedec6f5168aa9043779ecb79f1bdb7f642c',
-            bot='0xefa1afb85be5757f678fc491a504e13e63ce4369',
+            bot='0x47112324a3e9d48e37907c6a9f6bc5405c6b8d47',
             amount_in=0,
             amount_out_min=0,
             is_buy=False,

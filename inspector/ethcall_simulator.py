@@ -215,11 +215,11 @@ if __name__ == '__main__':
                     )
     
     result=simulator.inspect_pair(Pair(
-        address='0xc88d54d03e8b623ea5849ab5a009a629aa4d42d8',
-        token='0x1a8a97f537f96a6675c1deb1a8d1afbd32bd0639',
+        address='0xbb83fd610f50dbd2f7e3006b988b6ddf2a238212',
+        token='0x9d931e44a9266a03647af3a2aed4d42ca47f84f2',
         token_index=0,
         reserve_token=0,
         reserve_eth=0
-    ), 0.01, swap=True)
+    ), 0.0001, swap=True)
 
     logging.info(f"Simulation result {result}")

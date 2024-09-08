@@ -7,6 +7,7 @@ from decimal import Decimal
 import pytz
 from datetime import datetime
 import eth_utils
+import rlp
 
 def load_contract_bin(contract_path: str) -> bytes:
     with open(contract_path, 'r') as readfile:
@@ -120,3 +121,30 @@ def get_hour_in_vntz(dt: datetime):
 
 def determine_epoch(epoch_time_hour):
     return round(Decimal(get_hour_in_vntz(datetime.now())) / Decimal(epoch_time_hour))
+
+def create_signed_raw_transaction(w3, transaction, v, r, s):
+
+    # Prepare the EIP-1559 transaction
+    v = 1
+    eip1559_fields = [
+        transaction['chainId'],
+        transaction['nonce'],
+        transaction['maxPriorityFeePerGas'],
+        transaction['maxFeePerGas'],
+        transaction['gas'],
+        eth_utils.to_bytes(hexstr=transaction['to']),
+        transaction['value'],
+        eth_utils.to_bytes(hexstr=transaction['data']),
+        transaction.get('accessList', []),
+        eth_utils.to_bytes(v),
+        eth_utils.int_to_big_endian(r),
+        eth_utils.int_to_big_endian(s)
+    ]
+
+    # RLP encode the transaction
+    encoded_tx = rlp.encode(eip1559_fields)
+
+    # Prepend transaction type
+    typed_tx = b'\x02' + encoded_tx
+
+    return '0x' + typed_tx.hex()

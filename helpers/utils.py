@@ -125,7 +125,7 @@ def determine_epoch(epoch_time_hour):
 def create_signed_raw_transaction(w3, transaction, v, r, s):
 
     # Prepare the EIP-1559 transaction
-    v = 1
+    v = 1 # TODO
     eip1559_fields = [
         transaction['chainId'],
         transaction['nonce'],

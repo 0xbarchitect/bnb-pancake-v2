@@ -112,9 +112,9 @@ class BlockWatcher(metaclass=Singleton):
             #result = self.w3.provider.make_request("trace_replayTransaction", [tx_hash,['stateDiff']])
             #result = self.w3.provider.make_request("trace_replayTransaction", [tx_hash,['trace']])
             result = self.w3.provider.make_request("eth_getTransactionByHash", [tx_hash])
-            print(f"pending tx {result}")
-
+        
             if result is not None and result.get('result') is not None and result['result']['blockNumber'] is None:
+                print(f"pending tx {result}")
                 if result is not None and result.get('result') is not None:
                     #print(f"to {result['result']['to']}")
                     if result['result']['to'].lower()=='0x60abdbe0bf85d5109dbeacbca80945a5d40dac55'.lower():

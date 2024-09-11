@@ -90,7 +90,7 @@ class PairInspector(metaclass=Singleton):
     def is_contract_verified(self, pair: Pair) -> False:
         def source_code_is_malicious(source):
             #blacklist = ['family','_boot']
-            blacklist = [] # TODO: loosen
+            blacklist = ['family'] # TODO: loosen
 
             for word in blacklist:
                 if source.find(word) != -1:

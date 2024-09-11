@@ -291,9 +291,9 @@ class BlockWatcher(metaclass=Singleton):
     
     async def main(self):
         await asyncio.gather(
-            #self.listen_block(),
+            self.listen_block(),
             self.listen_report(),
-            self.listen_mempool(),
+            #self.listen_mempool(),
         )
 
 if __name__ == "__main__":     

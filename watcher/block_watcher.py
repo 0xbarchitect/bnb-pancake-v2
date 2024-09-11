@@ -98,6 +98,7 @@ class BlockWatcher(metaclass=Singleton):
                 logging.warning(f"WATCHER websocket-mempool connected...")
 
                 subscription_id = await w3Async.eth.subscribe("newPendingTransactions")
+                print(f"subscription id {subscription_id}")
 
                 async for response in w3Async.ws.process_subscriptions():
                     logging.info(f"new pending tx {Web3.to_hex(response['result'])}")

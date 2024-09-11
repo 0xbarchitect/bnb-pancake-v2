@@ -107,11 +107,11 @@ class BuySellExecutor(BaseExecutor):
             signed = self.w3.eth.account.sign_transaction(tx, priv_key)
             logging.debug(f"tx {tx} signed tx {signed}")
 
-            signed_raw = create_signed_raw_transaction(self.w3, tx, signed.v, signed.r, signed.s)
-            logging.debug(f"signed raw manual {signed_raw}")
+            #signed_raw = create_signed_raw_transaction(self.w3, tx, signed.v, signed.r, signed.s)
+            #logging.debug(f"signed raw manual {signed_raw}")
 
-            #tx_hash = self.w3.eth.send_raw_transaction(signed.rawTransaction)
-            tx_hash = self.w3.eth.send_raw_transaction(signed_raw)
+            tx_hash = self.w3.eth.send_raw_transaction(signed.rawTransaction)
+            #tx_hash = self.w3.eth.send_raw_transaction(signed_raw)
 
             logging.debug(f"created tx hash {Web3.to_hex(tx_hash)}")
             tx_receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash)

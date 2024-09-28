@@ -1,4 +1,4 @@
-# BNB-chain PancakeSwap-v2 Sniper bot
+# BNB-chain PancakeSwap-V2 Sniper bot
 Sniper bot for PancakeSwap-V2 on BNB chain for fun and profit.
 
 ## Prerequisites
